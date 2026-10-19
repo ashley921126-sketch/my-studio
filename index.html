@@ -257,7 +257,7 @@
 </head>
 <body>
   <header class="topbar">
-    <h1 id="workspace-title">松風民宿｜社群工作台</h1>
+    <h1 id="workspace-title">松風民宿 v2｜社群工作台</h1>
     <div class="header-actions">
       <span class="edition">小幫手的寫文空間</span>
       <button class="settings-button" id="settings-button" type="button">⚙ 設定</button>
@@ -428,7 +428,7 @@
     const drafts = Object.fromEntries(PLATFORMS.map(platform => [platform.id, '']));
     let activePlatform = PLATFORMS[0].id;
     document.title = `${BRAND.name}｜社群工作台`;
-    document.getElementById('workspace-title').textContent = document.title;
+    document.getElementById('workspace-title').textContent = `${BRAND.name} v2｜社群工作台`;
 
     const form = document.getElementById('material-form');
     MATERIAL_FIELDS.forEach(field => {
