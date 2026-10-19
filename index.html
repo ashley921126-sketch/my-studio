@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>松風民宿｜社群工作台</title>
+  <style>
+    /* 顏色集中於此；修改主色即可調整品牌配色。 */
+    :root {
+      --brand: #90674c;
+      --brand-dark: #704b35;
+      --brand-light: #f1e8e0;
+      --page: #f7f6f2;
+      --paper: #ffffff;
+      --ink: #302e29;
+      --muted: #716c63;
+      --line: #dedbd3;
+      --soft: #efeee8;
+      --phone: #292c28;
+      --phone-screen: #f4f5f2;
+      --focus: #90674c;
+      --header-ink: #ffffff;
+      --shadow: #302e2912;
+      --chat-background: #dcebf5;
+      --danger: #b42318;
+      --status-draft: #e8e1d8;
+      --status-review: #f7e7b8;
+      --status-done: #d7e8dc;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--page);
+      color: var(--ink);
+      font-family: "Microsoft JhengHei", "PingFang TC", sans-serif;
+      font-size: 15px;
+      line-height: 1.65;
+    }
+    button, input, textarea, select { font: inherit; }
+    .topbar {
+      min-height: 88px;
+      padding: 20px 32px;
+      background: var(--brand);
+      color: var(--header-ink);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+    h1 { margin: 0; font-size: 25px; font-weight: 600; letter-spacing: .07em; }
+    .edition { font-size: 13px; white-space: nowrap; }
+    .header-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; }
+    .settings-button { padding: 8px 14px; border: 1px solid var(--header-ink); border-radius: 6px; background: var(--brand); color: var(--header-ink); cursor: pointer; }
+    .settings-button:hover { background: var(--brand-dark); }
+    .intro {
+      max-width: 1680px;
+      margin: 0 auto;
+      padding: 21px 28px 16px;
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .intro p { margin: 0; }
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(290px, 1.06fr) minmax(330px, 1.3fr) minmax(285px, .94fr);
+      align-items: stretch;
+      gap: 20px;
+      max-width: 1680px;
+      margin: 0 auto;
+      padding: 0 28px 30px;
+    }
+    .panel {
+      min-width: 0;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .panel-heading { padding: 21px 23px 17px; border-bottom: 1px solid var(--line); }
+    h2 { margin: 0; font-size: 20px; letter-spacing: .05em; font-weight: 600; }
+    .panel-heading p { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
+    form { padding: 19px 23px 23px; display: grid; gap: 17px; }
+    .field label { display: flex; align-items: baseline; gap: 8px; margin-bottom: 7px; font-size: 14px; font-weight: 600; }
+    .requirement { color: var(--muted); font-size: 11px; font-weight: 400; white-space: nowrap; }
+    input, textarea {
+      display: block;
+      width: 100%;
+      min-width: 0;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--paper);
+      color: var(--ink);
+      line-height: 1.7;
+    }
+    input { min-height: 44px; }
+    textarea { resize: vertical; min-height: 80px; }
+    .field-story textarea, .field-feeling textarea { min-height: 108px; }
+    input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; font-size: 13px; }
+    input[type="file"] { padding: 9px; font-size: 12px; }
+    input[type="file"]::file-selector-button {
+      margin-right: 10px;
+      padding: 7px 10px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: var(--brand-light);
+      color: var(--brand-dark);
+      font: inherit;
+      cursor: pointer;
+    }
+    .field-hint { margin: 7px 0 0; color: var(--muted); font-size: 12px; }
+    :focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+    .editor-panel { display: flex; flex-direction: column; }
+    .tabs { display: flex; gap: 8px; padding: 20px 23px 0; }
+    .platform-button {
+      min-width: 65px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px 17px;
+      background: var(--paper);
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .platform-button.active { border-color: var(--brand); color: var(--brand-dark); background: var(--brand-light); font-weight: 700; }
+    .editor-body { padding: 24px 23px; flex: 1; display: flex; flex-direction: column; }
+    .editor-label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+    #post-content { flex: 1; min-height: 660px; padding: 20px; line-height: 1.9; font-size: 16px; }
+    .editor-note { margin: 12px 0 0; font-size: 12px; color: var(--muted); }
+    .word-count { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
+    .word-count.over-limit { color: var(--danger); font-weight: 700; }
+    .preview-panel { background: var(--soft); }
+    .preview-panel .panel-heading { background: var(--paper); }
+    .phone-area { display: flex; flex-direction: column; align-items: center; padding: 28px 16px; }
+    .phone {
+      width: 100%;
+      max-width: 310px;
+      height: 615px;
+      padding: 10px;
+      border: 2px solid var(--phone);
+      background: var(--phone);
+      border-radius: 42px;
+      box-shadow: 0 12px 30px var(--shadow);
+    }
+    .phone-screen { position: relative; height: 100%; overflow: hidden; border-radius: 31px; background: var(--phone-screen); }
+    .phone-status { height: 40px; padding: 11px 20px 0; display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; }
+    .speaker { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: 65px; height: 15px; border-radius: 20px; background: var(--phone); }
+    .phone-title { margin: 8px 0 0; padding: 10px 18px 15px; font-weight: 700; border-bottom: 1px solid var(--line); background: var(--paper); }
+    .preview-post { margin-top: 10px; background: var(--paper); }
+    .profile { padding: 18px 16px; display: flex; align-items: center; gap: 10px; }
+    .avatar { width: 39px; height: 39px; border-radius: 50%; background: var(--brand-light); color: var(--brand-dark); display: grid; place-items: center; font-family: "PMingLiU", serif; font-size: 22px; }
+    .profile-name { font-size: 13px; font-weight: 700; }
+    .profile-caption { font-size: 10px; color: var(--muted); }
+    .preview-empty { padding: 47px 20px 67px; text-align: center; color: var(--muted); }
+    .preview-empty strong { display: block; margin-bottom: 10px; font-size: 15px; color: var(--ink); font-weight: 500; }
+    .preview-empty p { margin: 0; font-size: 12px; line-height: 1.9; }
+    .preview-actions { border-top: 1px solid var(--line); padding: 13px 12px; display: flex; justify-content: space-around; color: var(--muted); font-size: 12px; }
+    .home-indicator { position: absolute; width: 93px; height: 4px; border-radius: 8px; bottom: 9px; left: 50%; transform: translateX(-50%); background: var(--phone); }
+    .preview-note { max-width: 285px; margin: 20px 0 0; text-align: center; color: var(--muted); font-size: 12px; }
+    .phone-screen { display: flex; flex-direction: column; }
+    .phone-status, .phone-title { flex-shrink: 0; }
+    .preview-feed { flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 24px; background: var(--paper); }
+    .preview-feed .preview-post { margin: 0; }
+    .preview-text { margin: 0; padding: 0 16px 18px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.8; }
+    .is-placeholder { color: var(--muted); }
+    .preview-image { display: grid; place-items: center; padding: 18px; background: var(--soft); color: var(--muted); text-align: center; overflow-wrap: anywhere; font-size: 12px; }
+    .preview-image-fb { aspect-ratio: 16 / 9; }
+    .preview-image-ig { aspect-ratio: 1; background: var(--brand-light); color: var(--brand-dark); font-size: 28px; font-weight: 600; line-height: 1.4; white-space: pre-wrap; }
+    .preview-image-ig.is-placeholder { color: var(--muted); font-size: 16px; font-weight: 400; }
+    .ig-actions { padding: 10px 16px; font-size: 23px; letter-spacing: 7px; }
+    .chat-feed { background: var(--chat-background); padding: 20px 12px 28px; }
+    .chat-row { display: flex; align-items: flex-start; gap: 8px; }
+    .avatar { flex-shrink: 0; }
+    .chat-message { min-width: 0; flex: 1; }
+    .chat-name { margin: 0 0 6px 3px; color: var(--muted); font-size: 11px; }
+    .chat-bubble { background: var(--paper); border-radius: 3px 14px 14px; padding: 12px; }
+    .chat-bubble .preview-text { padding: 0; }
+    .material-actions { padding: 0 23px 23px; display: grid; gap: 10px; }
+    .editor-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px; }
+    .action-button { border: 1px solid var(--brand); border-radius: 6px; padding: 10px 16px; background: var(--brand); color: var(--header-ink); cursor: pointer; font-weight: 600; }
+    .action-button.secondary { background: var(--paper); color: var(--brand-dark); }
+    .material-actions .action-button { width: 100%; }
+    .action-button:hover { background: var(--brand-dark); color: var(--header-ink); }
+    .work-status { margin: 10px 0 0; min-height: 24px; color: var(--brand-dark); font-size: 12px; }
+    .prompt-dialog { width: min(760px, calc(100% - 32px)); max-height: 90vh; padding: 24px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); color: var(--ink); }
+    .prompt-dialog::backdrop { background: var(--shadow); }
+    .prompt-dialog p { color: var(--muted); font-size: 13px; }
+    .prompt-dialog a { color: var(--brand-dark); }
+    #composed-prompt { height: 45vh; margin-top: 16px; font-size: 13px; }
+    #ai-reply-input { height: 48vh; margin-top: 12px; }
+    .ai-questions { margin-top: 18px; padding: 14px; border: 1px solid var(--line); border-radius: 6px; background: var(--brand-light); }
+    .ai-questions h3 { margin: 0 0 8px; font-size: 15px; }
+    .ai-questions p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; }
+    .settings-fields { display: grid; gap: 20px; margin-top: 20px; }
+    #settings-brand { min-height: 260px; }
+    #settings-checklist { min-height: 180px; }
+    #my-posts-dialog { width: min(1160px, calc(100% - 32px)); }
+    .saved-post-list { display: grid; grid-template-columns: repeat(3, minmax(240px, 1fr)); gap: 14px; margin-top: 18px; overflow-x: auto; align-items: start; padding-bottom: 8px; }
+    .board-column { padding: 12px; border: 1px solid var(--line); border-top: 5px solid var(--status-draft); border-radius: 8px; background: var(--page); min-width: 0; }
+    .board-column-review { border-top-color: var(--status-review); }
+    .board-column-done { border-top-color: var(--status-done); }
+    .board-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 14px; font-size: 16px; }
+    .board-count { border-radius: 20px; padding: 1px 9px; background: var(--paper); font-size: 12px; }
+    .board-cards { display: grid; gap: 12px; }
+    .board-empty { margin: 0; padding: 16px 0; font-size: 12px; color: var(--muted); }
+    .post-topic { margin: 6px 0; font-size: 13px; overflow-wrap: anywhere; }
+    .post-schedule { margin: 5px 0; color: var(--muted); font-size: 12px; }
+    .post-status-label { display: grid; gap: 5px; margin-top: 12px; color: var(--muted); font-size: 12px; }
+    .post-status-select { width: 100%; padding: 7px; border: 1px solid var(--line); border-radius: 5px; background: var(--paper); color: var(--ink); }
+    .saved-post-row { padding: 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); }
+    .saved-post-name { margin: 0; font-size: 15px; overflow-wrap: anywhere; }
+    .saved-post-row time { display: block; color: var(--muted); font-size: 12px; margin-top: 5px; }
+    .saved-post-row .editor-actions { margin-top: 12px; }
+    .media-frame { width: 100%; background: var(--soft); overflow: hidden; }
+    .media-frame-fb, .media-frame-line { aspect-ratio: 16 / 9; }
+    .media-frame-ig { aspect-ratio: 1; }
+    .media-frame img, .media-frame video { display: block; width: 100%; height: 100%; object-fit: contain; }
+    .media-controls { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 8px; }
+    .media-controls button { flex-shrink: 0; border: 1px solid var(--line); border-radius: 4px; padding: 4px 7px; color: var(--brand-dark); background: var(--paper); font: inherit; font-size: 11px; cursor: pointer; }
+    .media-caption { margin: 0; padding: 5px 10px 10px; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+    .media-count { font-size: 11px; color: var(--muted); }
+    .profile-menu { margin-left: auto; font-size: 22px; color: var(--muted); }
+    .fb-collapsed { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 5; overflow: hidden; padding-bottom: 0; }
+    .fb-expand { display: block; margin: 3px 16px 14px; padding: 0; border: 0; background: var(--paper); color: var(--muted); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .fb-expand[hidden] { display: none; }
+    .media-frame-ig img { object-fit: cover; }
+    .ig-upload { display: block; width: calc(100% - 20px); margin: 0 10px 10px; padding: 8px; border: 1px solid var(--line); border-radius: 5px; background: var(--paper); color: var(--brand-dark); cursor: pointer; font: inherit; font-size: 12px; }
+    #ig-photo-input { display: none; }
+    .phone-nav { display: flex; justify-content: space-around; flex-shrink: 0; padding: 8px 12px 21px; border-top: 1px solid var(--line); background: var(--paper); font-size: 21px; }
+    .chat-day { width: fit-content; margin: 0 auto 20px; padding: 3px 12px; border-radius: 20px; background: var(--paper); color: var(--muted); font-size: 10px; }
+    .chat-bubble-row { display: flex; align-items: flex-end; gap: 6px; }
+    .chat-bubble-row .chat-bubble { flex: 1; min-width: 0; }
+    .chat-time { flex-shrink: 0; padding-bottom: 2px; color: var(--muted); font-size: 9px; }
+    .chat-composer { font-size: 12px; justify-content: flex-start; color: var(--muted); background: var(--phone-screen); }
+    @media (min-width: 1500px) { .workspace { gap: 26px; } }
+    @media (max-width: 1100px) {
+      .workspace { grid-template-columns: minmax(270px, 1fr) minmax(310px, 1.15fr); }
+      .preview-panel { grid-column: 1 / -1; }
+      .phone-area { padding: 25px; }
+    }
+    @media (max-width: 680px) {
+      .topbar { padding: 18px 20px; gap: 8px; flex-wrap: wrap; }
+      h1 { font-size: 21px; }
+      .edition { font-size: 12px; }
+      .intro { padding: 18px 16px 14px; flex-direction: column; gap: 4px; }
+      .workspace { grid-template-columns: minmax(0, 1fr); padding: 0 16px 24px; gap: 16px; }
+      .preview-panel { grid-column: auto; }
+      .panel-heading { padding: 18px; }
+      form { padding: 18px; }
+      .tabs { padding: 18px 18px 0; }
+      .editor-body { padding: 20px 18px; }
+      #post-content { min-height: 380px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <h1 id="workspace-title">松風民宿｜社群工作台</h1>
+    <div class="header-actions">
+      <span class="edition">小幫手的寫文空間</span>
+      <button class="settings-button" id="settings-button" type="button">⚙ 設定</button>
+      <button class="settings-button" id="my-posts-button" type="button">📁 我的貼文</button>
+      <button class="settings-button" id="new-post-button" type="button">＋ 新的一篇</button>
+    </div>
+  </header>
+  <div class="intro">
+    <p>先留下一個真實故事，再慢慢整理成貼文。</p>
+    <p>切換平台，分開編輯貼文；內容即時顯示於手機預覽。</p>
+  </div>
+  <main class="workspace">
+    <section class="panel" aria-labelledby="material-title">
+      <div class="panel-heading">
+        <h2 id="material-title">素材卡</h2>
+        <p>必填共五項；範例僅供參考，請填寫這次的素材。</p>
+      </div>
+      <form id="material-form" aria-label="貼文素材卡" autocomplete="off"></form>
+      <div class="material-actions">
+        <button class="action-button" id="compose-button" type="button">🧩 組好指令</button>
+        <button class="action-button secondary" id="chatgpt-button" type="button">↗ 貼回 ChatGPT</button>
+        <button class="action-button secondary" id="import-ai-button" type="button">📥 貼回 AI 寫好的</button>
+        <p class="field-hint">複製三平台指令並開啟 ChatGPT，貼上送出即可一次取得 FB、LINE、IG 貼文。</p>
+        <button class="action-button" id="save-button" type="button">💾 存檔</button>
+        <p class="work-status" id="autosave-status" role="status" aria-live="polite"></p>
+      </div>
+    </section>
+    <section class="panel editor-panel" aria-labelledby="editor-title">
+      <div class="panel-heading">
+        <h2 id="editor-title">貼文編輯</h2>
+        <p>把故事留在這裡，整理成想對旅客說的話。</p>
+      </div>
+      <nav class="tabs" id="platform-tabs" aria-label="貼文平台"></nav>
+      <div class="editor-body">
+        <label class="editor-label" id="post-label" for="post-content">FB 貼文內容</label>
+        <textarea id="post-content" placeholder="在這裡貼上或修改貼文……" spellcheck="false"></textarea>
+        <p class="word-count" id="word-count" role="status" aria-live="polite" aria-atomic="true" title="標點計入；空白、換行與網址不計入。">目前 0／650 字</p>
+        <div class="editor-actions">
+          <button class="action-button secondary" id="copy-button" type="button">📋 一鍵複製</button>
+        </div>
+        <p class="editor-note">編輯內容會自動暫存；按「存檔」收進「我的貼文」，同一篇重存會更新。</p>
+        <p class="work-status" id="work-status" role="status" aria-live="polite"></p>
+        <section class="ai-questions" id="ai-questions" aria-labelledby="ai-questions-title" hidden>
+          <h3 id="ai-questions-title">要問我的</h3>
+          <p id="ai-questions-text"></p>
+        </section>
+      </div>
+    </section>
+    <aside class="panel preview-panel" aria-labelledby="preview-title">
+      <div class="panel-heading">
+        <h2 id="preview-title">手機預覽</h2>
+        <p>先看看貼文在手機裡的位置。</p>
+      </div>
+      <div class="phone-area">
+        <div class="phone" id="preview-phone" aria-label="手機外觀與臉書貼文預覽示意">
+          <div class="phone-screen">
+            <div class="phone-status" aria-hidden="true"><span>九時四十一分</span><span>▰</span></div>
+            <div class="speaker" aria-hidden="true"></div>
+            <div class="phone-title" id="phone-title">FB 貼文預覽</div>
+            <div class="preview-feed" id="preview-feed" aria-label="貼文即時預覽"></div>
+            <div class="phone-nav" id="phone-nav" aria-hidden="true"></div>
+            <div class="home-indicator" aria-hidden="true"></div>
+          </div>
+        </div>
+        <p class="preview-note">貼文與附件即時預覽；平台外觀僅供排版參考。<br>IG 未選附件時，圖片區顯示素材卡第一格。</p>
+      </div>
+    </aside>
+  </main>
+  <input id="ig-photo-input" type="file" accept="image/*" aria-label="選取一張 IG 預覽照片">
+  <dialog class="prompt-dialog" id="import-ai-dialog" aria-labelledby="import-ai-title">
+    <h2 id="import-ai-title">貼回 AI 寫好的</h2>
+    <p>整段貼上 AI 的回覆，使用獨立一行的【FB】【IG】【LINE】標題分段；【要問我的】會顯示在貼文框下方。分配時會取代有提供內容的平台，未提供的平台保留原文。</p>
+    <label class="editor-label" for="ai-reply-input">AI 的完整回覆</label>
+    <textarea id="ai-reply-input" placeholder="【FB】&#10;臉書貼文……&#10;&#10;【IG】&#10;照片社群貼文……&#10;&#10;【LINE】&#10;通訊貼文……&#10;&#10;【要問我的】&#10;需要確認的問題……"></textarea>
+    <div class="editor-actions">
+      <button class="action-button" id="distribute-ai-button" type="button">分到各平台</button>
+      <button class="action-button secondary" id="close-import-ai-button" type="button">關閉</button>
+    </div>
+    <p class="work-status" id="import-ai-status" role="status" aria-live="polite"></p>
+  </dialog>
+  <dialog class="prompt-dialog" id="my-posts-dialog" aria-labelledby="my-posts-title">
+    <h2 id="my-posts-title">我的貼文</h2>
+    <p>名稱為「存檔當日日期＋素材卡第一格」，時間以台灣時間顯示。</p>
+    <p id="board-summary">草稿、等老闆確認、完成，改狀態後會立即儲存。</p>
+    <div class="saved-post-list" id="saved-post-list"></div>
+    <p class="work-status" id="my-posts-status" role="status" aria-live="polite"></p>
+    <div class="editor-actions"><button class="action-button secondary" id="close-my-posts-button" type="button">關閉</button></div>
+  </dialog>
+  <dialog class="prompt-dialog" id="settings-dialog" aria-labelledby="settings-title">
+    <h2 id="settings-title">設定</h2>
+    <p>品牌規格與檢查清單儲存在這個瀏覽器，組好指令時會使用你最後儲存的內容。</p>
+    <div class="settings-fields">
+      <div>
+        <label class="editor-label" for="settings-brand">品牌規格</label>
+        <textarea id="settings-brand" placeholder="貼上完整品牌規格"></textarea>
+      </div>
+      <div>
+        <label class="editor-label" for="settings-checklist">檢查清單</label>
+        <textarea id="settings-checklist" placeholder="貼上寫完後要檢查的清單；沒有可留空"></textarea>
+      </div>
+    </div>
+    <div class="editor-actions">
+      <button class="action-button" id="save-settings-button" type="button">儲存</button>
+      <button class="action-button secondary" id="close-settings-button" type="button">關閉</button>
+    </div>
+    <p class="work-status" id="settings-status" role="status" aria-live="polite"></p>
+  </dialog>
+  <dialog class="prompt-dialog" id="prompt-dialog" aria-labelledby="prompt-title">
+    <h2 id="prompt-title">組好的三平台寫文指令</h2>
+    <p>已加入設定區儲存的品牌規格、檢查清單與素材，一次要求三平台貼文。貼到 ChatGPT 送出，寫好後再分別貼回對應分頁。附件僅列檔名，需要看圖時請另外附檔。</p>
+    <label class="editor-label" for="composed-prompt">完整指令</label>
+    <textarea id="composed-prompt" readonly></textarea>
+    <div class="editor-actions">
+      <button class="action-button" id="copy-prompt-button" type="button">複製</button>
+      <button class="action-button secondary" id="close-prompt-button" type="button">關閉</button>
+    </div>
+    <p class="work-status" id="prompt-status" role="status" aria-live="polite"></p>
+    <p>若新分頁未開啟，可<a href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">點此開啟 ChatGPT</a>，再貼上指令送出。</p>
+  </dialog>
+  <noscript>請啟用瀏覽器的 JavaScript，以顯示素材卡欄位及平台按鈕。</noscript>
+  <script type="application/json" id="brand-spec-data">"# 松風民宿品牌規格\n\n## 基本資料\n\n| 欄位 | 內容 |\n|---|---|\n| 品牌名稱 | 松風民宿 |\n| 帳號名稱 | FB：已提供粉絲專頁連結，頁面顯示名稱 ❓待補；IG：❓待補；訂房 LINE ID：`nona7688`（顯示名稱及是否為官方帳號 ❓待補） |\n| Facebook | [松風 Facebook（使用者提供）](https://www.facebook.com/p/%E6%9D%BE%E9%A2%A8-61572934135345/) |\n| 主色色碼 | `#90674c` |\n| 我要用的平台 | FB、IG、LINE |\n| 提供內容 | 住宿服務 |\n| 營業日 | 週一至週日 |\n| 地址 | 955臺東縣鹿野鄉龍田村龍馬路95巷17號 |\n| 營業時間 | ❓待補（入住／退房時間不等於全天營業或接待時段） |\n| 入住時間 | 15:00－18:00 |\n| 退房時間 | 11:00 前須退房 |\n| 聯絡方式／訂房管道 | 電話：0987-425-930；訂房 LINE ID：`nona7688`；亦可透過 [Booking](https://www.booking.com/Share-fu4Jfus)、[Agoda](https://www.agoda.com/zh-tw/songfeng-b-b/hotel/taitung-tw.html?cid=1844104&ds=Iw6i47uv3MvZBXkJ) 訂房 |\n| 房價 | 雙人房：每房每晚 NT$2,000；4 人房單床位：每床每晚 NT$700；4 人房整間：每房每晚 NT$2,800 |\n| 幣別與計價 | 新臺幣（NT$），按晚計價；平日、假日與旺季同價 |\n| 得獎紀錄 | ❓待補 |\n\n> 內容來源：松風品牌卡.md，以及使用者於 2026-10-15 補充的 Facebook 連結、地址、電話、訂房 LINE ID、Booking／Agoda 訂房管道及房源連結、房價與入住／退房時間。Facebook、Booking 與 Agoda 頁面本次未能讀取，連結依使用者提供記錄，未據此補寫頁面內容；Booking 與 Agoda 均使用使用者最新提供的連結。小島咖啡範例只供章節、規則與骨架的格式參考。\n> 「品牌卡明載」是原有資料；「建議規則」是為了讓寫作可執行而新增的編輯設定，不代表品牌卡原本有規定。缺少的品牌事實一律標「❓待補」。\n> 新增口氣來源：使用者於 2026-10-15 提供的 3 篇品牌 Facebook 貼文（發文日期未提供）。用於辨識實際口氣，舊文中的營運進度與商品不直接視為現況。\n\n## 1. 品牌口氣（寫具體）\n\n品牌重視自然與地方生活；實際 FB 貼文則由「小幫手」出面聊天，有自嘲、括號插話、家人對話與感謝，不只寫安靜抒情的風景。FB 故事採小幫手口吻；住宿公告仍優先講清楚資訊。\n\n**品牌卡明載的方向：**\n\n- 對象是去台東熱氣球季的遊客、想去台東放鬆的情侶，以及喜愛文青氛圍、大自然與慢活的旅客。\n- 強調民宿特色與在地生活，不以飯店或旅店的一應俱全作為訴求。\n- 不只介紹住宿，也傳達了解在地生活的想法。\n\n**建議規則（新增的編輯設定）：**\n\n- 稱呼讀者以「你」「大家」為主；新稿統一不用「您」「親愛的」「各位貴賓」。原 FB 貼文曾用「您」，因此這是統一編輯的建議，不是原品牌從未使用。\n- FB 故事自稱「小幫手」，談共同心意時可用「我們」；提到經營者用「老闆」，不虛構姓名。IG 若承接小幫手故事可沿用自稱；LINE 公告用「松風」或「我們」。\n- 一句只講一件事；以句號、問號或驚嘆號作為句尾。FB 每句最多 60 字，IG、LINE 每句最多 40 字；超過就拆句。舊文原文引用不受此限。\n- 每段 1～3 句；以空行分段。平台另有限制時，以該平台為準。\n- 每篇只選 1 個主題，例如名字的故事、地方生活或住宿公告。\n- emoji 上限：FB 每篇 5 個，IG 每篇 2 個，LINE 每篇 1 個；都可以不用，不連續排列。這些上限是參考實際貼文後的建議值。\n- 驚嘆號：FB 全篇最多 2 個，可在同一句使用「！！」；IG、LINE 全篇最多 1 個。\n- FB 括號插話最多 4 處，每處最多 15 字；可用「（撥髮）」「（？）」等自嘲，不拿旅客開玩笑。注音諧音或「484」等數字諧音一篇合計最多 1 處，限日常故事，訂房公告不用。\n- 有來源時可以放 1 組家人或老闆對話；沒有逐字資料就改為間接敘述，不編造引號內對白。故事中可以自嘲，再回到對家人、協助者或土地的感謝；不強迫每篇加笑點。\n- 多用品牌卡已有的具體畫面，例如木質空間、龍田的草地與茶田；不自行補寫窗外景色、天氣或現場見聞。\n- 描述適合的旅行方式，例如放慢步調、了解在地；不把對特定旅客的拒絕當成貼文開場。\n- 邀請句每篇最多 1 句，不催促、不倒數；需要訂房資訊時，只放已確認的管道。\n\n**計數方式：**以下字數均計標點、不計空白與換行；網址不計入字數。平台行數以手動換行後的非空白行計，手機自動折行不另計；emoji 的上限包含骨架中的符號。\n\n## 2. 不能用的字\n\n**品牌卡明載，所有新寫貼文都禁用：**\n\n- 狂歡\n- 慶祝\n- 熱鬧\n\n**建議新增的禁用說法：**\n\n- 催促：「快搶」「手刀訂房」「錯過可惜」「最後倒數」。\n- 誇大：「全台第一」「必住」「保證療癒」「百分之百放鬆」。\n- 一應俱全的承諾：「什麼都有」「所有需求都能滿足」「飯店級全套服務」。\n\n不能用的原因是與品牌方向不合或缺少依據，不能換個近義詞繼續作同樣的承諾。\n\n## 3. 不准自己加的東西\n\n- 地址、電話、Facebook 連結與訂房 LINE ID：使用基本資料中的已提供內容。Booking／Agoda 房源連結使用基本資料中的網址。IG 帳號、各平台顯示名稱與其他訂房網址：❓待補；不自行拼出網址。\n- 房價使用已確認的「雙人房每房每晚 NT$2,000」「4 人房單床位每床每晚 NT$700」「4 人房整間每房每晚 NT$2,800」，平日、假日與旺季同價。四人房整間價格由使用者明確提供；不把單床位價格寫成整間房價，也不自行改寫成「起」價。折扣、訂金與取消規則：❓待補。\n- 入住時間為 15:00－18:00，11:00 前須退房。營業具體時段、提前入住與延後退房規則：❓待補；不能把入住時段當成全部接待時段，也不能把「週一至週日」寫成「24 小時服務」。\n- 已知房價項目有雙人房與 4 人房單床位；完整房型、房數、入住人數規則、設施、早餐、交通與接送：❓待補。\n- 得獎、評分、旅客評價、入住人次、經營年數或其他成果數字：❓待補。\n- 熱氣球活動日期、票價、距離、步行或車程：❓待補。品牌卡提到目標旅客，不代表提供活動方案或能從民宿看見熱氣球。\n- 書店、茶飲、咖啡、課程、導覽及店家合作的實際服務內容：❓待補。\n- 舊 FB 文曾提到民宿牌申請、農產品與手作品販售。可作歷史原文參考；目前登記名稱與編號、是否持續販售、品項、庫存及價格：❓待補。不能據此新增現行認證或「現貨供應」承諾。\n- 舊文的「期盼在6月前能夠正式營業」是當時的計畫，日期年份未提供，不作為目前進度或正式開幕日。小幫手上過森林療癒課程的敘述，也不代表民宿提供相關課程；不把舊文中的個人感受改成健康效果保證。\n\n品牌卡的「我們希望這裡成為一處能閱讀、喝茶或咖啡、與人聊聊地方生活的空間」是願景。改寫時保留「希望」或「想讓」的語氣，不寫成「入住附咖啡」「提供茶席」「可預約課程」等現行服務。\n\n品牌卡原文已有的「五月完工」「只住一兩晚」可以保留原意，但不能推算完工年份，也不能把「一兩晚」改寫成最低入住晚數。\n\n「❓待補」用於草稿與規格。正式發布前，必要資訊要補齊；非必要資訊可以整句刪除，不能自行填值。\n\n## 4. 參考貼文（照這篇的感覺寫）\n\n### 4.1 原有品牌卡參考文\n\n以下完整保留品牌卡的範例原文，不是新增服務公告，也不受本規格建議的字數與段落上限限制。新稿學它的敘事感，依各平台骨架調整長度。\n\n```text\n「五月賣松風，人間恐無價。」\n一句在朋友談話中被想起的詩，為松風取了名字；民宿又恰好在五月完工，讓這段緣分有了落腳的地方。\n松風位於鹿野龍田村。我們希望，來到這裡的旅人，能留一點時間認識住宿之外的生活：看看草地與茶田，走進沿途的小店，聽聽在這裡生活的人如何過日子。\n白天，從松風出發，沿著自己的興趣探索地方；夜裡，回到沒有電視與 KTV 的安靜空間，聊聊今天的見聞，或讓自己好好休息。那些途中遇見的人與事，都可以慢慢成為旅行的一部分。\n松風也正朝結合閱讀、品茶與在地選物的空間前進，期待未來與地方有更多連結。讓旅人因住宿來到龍田，也因認識這裡的日常，多一個想再回來的理由。\n\n```\n\n照這篇的感覺寫：先給一個具體起點，再說它與松風的關係，最後用一句邀請收尾。不要只堆「療癒、質感、慢活」等形容詞，也不要每篇都複製同一段故事。\n\n### 4.2 品牌實際 FB 貼文：照這些篇的感覺寫\n\n以下是使用者提供的 3 篇原文。僅拆開篇章、保留段落，將 Facebook emoji 與 hashtag 連結轉成純文字；保留原有用字、錯別字、玩笑與標點，不是新寫的貼文。歷史原文不適用新稿字數限制，也不直接作為當前營運公告。\n\n**範例一：小幫手出場、籌備感謝與小小工商。**學它「先開玩笑，再說不容易，最後感謝」的轉折；商品內容發布前須另確認。\n\n```text\n小幫手又來了（出場率484有點高？）\n被老闆拜（ㄒㄧㄝˊ）託（ㄆㄛˋ）幫他寫一篇文，好吧！誰叫小幫手很容易文思泉湧（撥髮）\n看到老闆從空空的屋子開始，真的很不容易，很多事情親力親為，不像小幫手的才能只會點點手指頭+嘴巴講講話，但我也申請了合法民宿牌出來（甩髮）\n有時要成就一件事情，的確是不簡單，各方面大家的幫忙，不管是老天、父母、身邊的親友團、師傅們、當然怎麼可以忘記小幫手🙋‍♀️…等等，雖然這看起來是一條未知又奇幻、帶點夢想的旅程，但要走過才會知道吧～就像熱氣球起飛，你也不知道它會在哪降落。（若我們預算不夠搭乘熱氣球，但一樣能來台東看看美麗又溫柔的山水喔！）\n總之老闆要表達對大家的感恩🙏也感謝這塊包涵與孕育我們的土地❤️\n最後偷偷小小工商🥹若來台東，小幫手家的農產品，也能在民宿購買到，有少量好吃的自然農法巧克力、桑椹果醬、桑椹發酵液、精油、亞麻手作衣服、手作品…都可以找老闆購買喔🙏\n#鹿野民宿\n#熱氣球\n#歡迎訂房\n```\n\n**範例二：從自己的生活經驗談自然。**學它「先說自己如何改變，再邀請大家感受」的方式；不沿用裝修進度或健康效果說法。\n\n```text\n小幫手來祝大家新年快樂！！\n記得好多年前小幫手來台東的時候，當時的懵懂少女（？）並不知道台東的好與價值，也許有些人覺得奇怪，為什麼要選擇到鄉下生活？經過多年以後，小幫手手握著泥土、親近花草樹木，才懂得人與自然中間的價值是什麼。\n除了這裡沒有都市的擁擠、沒有一開門就見到高高低低的建築物、沒有亮眼的霓虹燈光、冬天沒有霧濛濛的天空…\n這裡有的是新鮮空氣、緩慢的步調、錢的味道不重（？）…小幫手開始發現在自然環境，是我最舒服放鬆的狀態😌進而開始想了解很多關於自然的事情，也因為能感受到自然對我的幫忙，進而去上森林療癒的課程。\n我們就算沒有辦法生活在鄉下，也可以有空隨時到森林中走走，讓副交感神經活絡，可以釋放壓力情緒…好處多多。但這個篇幅還是不要寫太多拉里拉雜的，搞得像自己的粉專一樣😗\n報告一下民宿現在進度還在裝修採購中，我們期盼在6月前能夠正式營業，屆時歡迎大家來感受台東這片黏人的土地❤️\n祝福大家在新的一年平安自在、平心靜氣，保有澄澈寧靜的自己。\n#好事馬上旺，不開心的事馬上忘\n#歡迎來鹿野跳馬\n#民宿現在亂亂的沒什麼好拍，小幫手只好犧牲自己選了最適合（？）馬年的影片。\n```\n\n**範例三：取名與羅漢松的故事。**學它「真實小事＋家人對話＋最後一個笑點」的節奏；詩作作者歸屬是原文說法，未另查證，對外引用作者前須核實。\n\n```text\n《小幫手說故事》\n當初要申請合法的民宿牌，首先第一步要先想個響亮亮又好記的名字。勞闆想了好多個，都被小幫手說不好🤣\n小幫手本身是文青美少女（？？？\n取名字喜歡有氣質、內涵+意義，光是想個名字，小幫手的親友都來幫忙想這樣😆 有天小幫手那位常常文思泉湧的阿母說：欸欸～取松風如何？\n是一首我從小就常常聽長輩唸的詩：\n本是山中人，愛說山中話。\n五月賣松風，人間恐無價。\n而谷歌也查不太到關於這首詩的資訊，只知道是一位釋思岳禪師寫的。\n取名松風\n來往松風體驗台東，感受這首詩與您內心或者跟大自然的連結🌈\n故事之後的故事\n勞闆買了一棵羅漢松種在門口，小棵到我阿母走進去再走出來，問一句：「沒看到羅漢松啊？」「在那邊啊～（手指）」\n「那麼小！跟桂花一樣高，難怪我沒看到」\n#我們來看看哪時候可以長得跟我一樣高😏\n#鹿野民宿\n```\n\n**兩份資料的取名敘述不同：**原有參考文寫「朋友談話」，這次 FB 原文寫「阿母提議」。後續新稿暫用共同資訊「因一句詩而取名」，具體由誰提議標「❓待補」，不把兩個版本拼成新故事。原有參考文保留供對照。\n\n## 5. 三個平台的規則＋填空骨架\n\n> 平台名單來自品牌卡；以下讀者分工、篇幅、第一行、段落配置與固定結尾均為建議規則。品牌卡沒有各平台受眾數據，不能當成實際追蹤者分析。\n> 骨架中的括號是填寫提示，完成貼文時刪除。emoji 上限依平台：FB 5 個、IG 2 個、LINE 1 個。FB 骨架依實際小幫手貼文調整；IG、LINE 沒有提供實際貼文，仍是建議設定。\n\n### Facebook\n\n- **誰在看：**想進一步了解松風故事與鹿野生活、正在考慮台東住宿的旅客（建議的內容對象，不預設年齡或熟客身分）。\n- **多長：**全文 300～650 字；正文 5～8 段，每段 1～3 句，另加 hashtag；最多 3 個 hashtag。這是編輯建議，不是對舊文長度的描述。\n- **第一行寫什麼：**最多 30 字，用「小幫手」出場句或「《小幫手說故事》」帶出本篇主題，可以加 1 個括號小吐槽；不必每篇都用同一句。\n- **中間寫什麼：**先講 1 件有來源的真實小事，帶入家人或老闆互動，再說感受、感謝或與土地的連結。可選 1 小段訂房資訊，不強迫每篇工商；不能虛構新對話或自身經歷。\n- **最後一行固定寫：**「#鹿野民宿」。實際貼文用過這個 hashtag，但固定放最後一行是新增的建議規則；其他 hashtag 與聯絡方式放在它前面。\n\n**骨架（照這個格子填）：**\n\n```text\n（第 1 段：小幫手出場或《小幫手說故事》，首行最多 30 字）\n\n（第 2 段：一件有資料來源的小事，1～3 句）\n\n（第 3 段：家人或老闆的互動，可加一處自嘲；不編對白）\n\n（第 4 段：小幫手的感受，連到自然、土地或地方生活）\n\n（第 5 段：感謝或一句邀請，不催促）\n\n（可選加 1～3 段延伸同一故事；需要訂房時，其中 1 段寫「訂房洽 LINE ID：nona7688」）\n（可選其他 hashtag，最多 2 個）\n#鹿野民宿\n```\n\n### Instagram\n\n- **誰在看：**被自然與木質空間影像吸引、想感受台東慢步調的旅客（建議的內容對象，不預設年齡）。\n- **多長：**全文 60～140 字、4～6 個非空白行；每行最多 30 字；hashtag 0～3 個，計入總字數與行數。\n- **第一行寫什麼：**用最多 20 字，點出照片中的 1 個可確認畫面或與它相關的 1 個想法。沒有照片時，不宣稱「今天拍到」。\n- **中間寫什麼：**用 2～3 行寫畫面細節與地方生活的連結，一行一件事；不塞進完整品牌歷史。\n- **最後一行固定寫：**「住進鹿野的生活裡。」這是前版採用的建議結尾，不是這次實際 FB 貼文的固定用語。\n- **帳號與 hashtag：**實際 IG 帳號為「❓待補」，不造一個 @ 帳號。需要 hashtag 時，可從品牌卡詞彙選用 `#松風民宿`、`#鹿野`、`#慢活`，放在固定結尾前。\n\n**骨架：**\n\n```text\n（第 1 行：照片畫面或相關想法，最多 20 字）\n（第 2 行：1 個有依據的細節）\n（第 3 行：與鹿野生活或慢步調的連結）\n（可選第 4 行：延伸同一主題；可選 hashtag 另占 1 行）\n住進鹿野的生活裡。\n```\n\n### LINE\n\n- **誰在看：**已加入帳號、想快速取得住宿資訊或公告的旅客（建議的內容對象；不自行稱為會員）。\n- **多長：**全文 50～120 字、4～6 個非空白行；每行最多 30 字；hashtag 0 個。\n- **第一行寫什麼：**「【松風住宿】＋一句重點」或「【松風公告】＋一句重點」，全行最多 25 字。沒有優惠資料，就不寫會員限定或折扣。\n- **中間寫什麼：**列 1～3 個重點，每點 1 行；另用 1 行寫清楚接下來怎麼做。使用「・」列點，不用多個 emoji 當項目符號。\n- **最後一行固定寫：**「松風民宿」（建議固定署名）。\n- **行動管道：**可寫「訂房洽 LINE ID：nona7688」或「訂房洽 0987-425-930」。Booking／Agoda 可使用基本資料中的房源連結；回覆、付款、確認訂房流程為「❓待補」；不能先承諾「回覆就能訂房」或「點選選單」，也不將訂房 LINE ID 視為已確認的官方帳號。\n\n**骨架：**\n\n```text\n【松風公告】（一句重點，整行最多 25 字）\n・（重點 1：已確認的資訊）\n・（可選重點 2）\n・（可選重點 3）\n訂房洽 LINE ID：nona7688\n松風民宿\n```\n\n## 6. 平台限定與發布前檢查\n\n**建議規則：**\n\n- 已確認訂房管道為電話、LINE ID、Booking 與 Agoda。平台專屬優惠、會員制度及 LINE 自動訂房功能仍為「❓待補」；不沿用小島咖啡的會員預購與優惠。\n- FB 用故事展開，IG 用畫面與短句，LINE 用重點與明確下一步；同一主題也依骨架改寫。\n- 檢查品牌名稱、主色色碼與平台是否和品牌卡一致。\n- 檢查新稿禁用詞是否為 0 個；emoji 是否符合 FB 最多 5 個、IG 最多 2 個、LINE 最多 1 個；句長、篇幅、插話與固定結尾是否符合平台規則。\n- 檢查小幫手的趣味是否來自語氣，而不是編造經歷；歷史貼文中的商品、裝修、日期、證照與健康效果說法不得直接轉為現行承諾。\n- 檢查每個地址、價格、時間、數字與服務承諾是否有資料來源；缺資料就標「❓待補」。\n- 檢查「希望成為」有沒有被誤寫成「現在提供」。\n- 檢查骨架提示及「❓待補」是否已在發布前補齊或刪除；沒有確認的必要資訊就不發布該公告。\n\n## 7. 哪些地方是我猜的？\n\n以下是我依品牌卡與實際 FB 範例提出的寫作設定，並非使用者已確認的硬性規定：\n\n1. **口氣的量化方式：**新稿統一用「你／大家」、FB 每句最多 60 字、IG／LINE 每句最多 40 字、每段最多 3 句、每篇 1 個主題、FB／IG／LINE emoji 上限為 5／2／1 個、FB 驚嘆號最多 2 個而其他平台最多 1 個、FB 括號插話最多 4 處及諧音最多 1 處、邀請句最多 1 句。小幫手自稱、自嘲與家人對話有實際貼文依據；具體數字上限是我訂的建議。\n2. **新增禁用說法：**催促、誇大與一應俱全的承諾；只有「狂歡、慶祝、熱鬧」是品牌卡明列的禁用字。\n3. **平台讀者分工：**FB 看故事、IG 看畫面、LINE 看資訊，是內容安排建議，沒有帳號受眾數據佐證。\n4. **平台數字與排版：**各平台的字數、行數、段落數、hashtag 數量及擺放位置，全部是建議值。\n5. **固定結尾與標題：**FB 固定以「#鹿野民宿」結尾是新增建議，雖然原文用過該標籤；IG 的「住進鹿野的生活裡。」沿用前版設定，LINE 的固定署名與公告標題也是建議。沒有證據顯示品牌目前每篇都這樣結尾。\n\n**不是猜的口氣特徵：**「小幫手」出場、自嘲、括號插話、諧音、家人對話，以及從玩笑轉向感謝與自然感受，都能在這次提供的 FB 原文找到。這些是對文本的觀察，不是成效或受眾數據。\n\n品牌名稱、平台、主色、營業日、品牌卡描述的受眾、三個禁用字及參考貼文均來自品牌卡。Facebook 連結、完整地址、電話、訂房 LINE ID、Booking／Agoda 管道與房源連結、三項房價、新臺幣按晚計價、平日假日旺季同價，以及入住時間 15:00－18:00、11:00 前須退房，均來自使用者補充，沒有猜填。未確認的帳號顯示名稱、IG 帳號、折扣、訂金、取消規則、營業具體時段、提前入住與延後退房規則、得獎及其他營運資料均標「❓待補」。\n"</script>
+  <script>
+    // ── 品牌、平台與欄位設定：日後從這裡修改 ──
+    const BRAND = {
+      name: '松風民宿',
+      accounts: { fb: '❓待補', ig: '❓待補', line: '❓待補' },
+      bookingLineId: 'nona7688' // 訂房 ID，並非已確認的帳號顯示名稱。
+    };
+    const PLATFORMS = [
+      { id: 'fb', name: '臉書', label: 'FB', maxLength: 650 },
+      { id: 'ig', name: '照片社群', label: 'IG', maxLength: 140 },
+      { id: 'line', name: '通訊社群', label: 'LINE', maxLength: 120 }
+    ];
+    const POST_STATUSES = [
+      { id: 'draft', label: '草稿' },
+      { id: 'review', label: '等老闆確認' },
+      { id: 'done', label: '完成' }
+    ];
+    const MATERIAL_FIELDS = [
+      { id: 'date', label: '預計發布日期', required: true, type: 'text', placeholder: '例：2026-10-16' },
+      { id: 'topic', label: '今天想講的主題', required: true, type: 'text', placeholder: '例：松風名字的由來' },
+      { id: 'story', label: '真實的故事或畫面', required: true, type: 'textarea', placeholder: '例：名字與「五月賣松風，人間恐無價」這句詩有關' },
+      { id: 'feeling', label: '小幫手的感受或想法', required: true, type: 'textarea', placeholder: '例：想讓大家認識名字背後的心意，不只是看到住宿資訊' },
+      { id: 'nearby', label: '推薦的附近景點或活動', required: false, type: 'textarea', placeholder: '填寫這次想分享的附近景點或活動；沒有則留空' },
+      { id: 'participation', label: '旅客怎麼參與', required: true, type: 'textarea', placeholder: '填寫已確認的前往、預約或參與方式' },
+      { id: 'media', label: '照片/影片素材', required: false, type: 'file', accept: 'image/*,video/*,.png,.jpg,.jpeg,.webp,.gif,.avif,.mp4,.mov,.webm,.m4v,.avi,.mkv', multiple: true, hint: '可多選照片或影片（照片可用 PNG、JPG、WebP 等格式），選取後同步顯示在手機預覽。附件也會存入這台瀏覽器；容量不足時會顯示提示。' },
+      { id: 'action', label: '希望讀者做甚麼', required: false, type: 'textarea', placeholder: '例：留言聊聊；這篇先不放訂房資訊' }
+    ];
+
+    const BRAND_SPEC = JSON.parse(document.getElementById('brand-spec-data').textContent);
+    const STORAGE_KEY = 'songfeng-social-workspace-v1';
+    const SETTINGS_KEY = 'songfeng-social-settings-v1';
+    const POSTS_KEY = 'songfeng-social-posts-v1';
+    const AUTOSAVE_KEY = 'songfeng-social-autosave-v2';
+    let settings = { brandSpec: BRAND_SPEC, checklist: '' };
+    // 正式存檔與自動暫存分開，沿用既有設定並保留舊版單篇存檔。
+    let currentPostId = makePostId();
+    let currentPostStatus = 'draft';
+    let currentCreatedAt = new Date().toISOString();
+    let aiQuestions = '';
+    let mediaFiles = [];
+    let previewMediaIndex = 0;
+    let fbExpanded = false;
+    let mediaReadVersion = 0;
+    let mediaReading = false;
+    let mediaReadFailed = false;
+    let initializing = true;
+    const drafts = Object.fromEntries(PLATFORMS.map(platform => [platform.id, '']));
+    let activePlatform = PLATFORMS[0].id;
+    document.title = `${BRAND.name}｜社群工作台`;
+    document.getElementById('workspace-title').textContent = document.title;
+
+    const form = document.getElementById('material-form');
+    MATERIAL_FIELDS.forEach(field => {
+      const wrapper = document.createElement('div');
+      wrapper.className = `field field-${field.id}`;
+      const label = document.createElement('label');
+      label.htmlFor = `material-${field.id}`;
+      label.append(document.createTextNode(field.label));
+      const requirement = document.createElement('span');
+      requirement.className = 'requirement';
+      requirement.textContent = field.required ? '必填' : '選填';
+      label.append(requirement);
+      const input = document.createElement(field.type === 'textarea' ? 'textarea' : 'input');
+      if (field.type !== 'textarea') input.type = field.type;
+      input.id = `material-${field.id}`;
+      input.name = field.id;
+      input.required = field.required;
+      if (field.placeholder) input.placeholder = field.placeholder;
+      if (field.type === 'file') {
+        input.accept = field.accept;
+        input.multiple = field.multiple;
+      }
+      wrapper.append(label, input);
+      if (field.hint) {
+        const hint = document.createElement('p');
+        hint.id = `material-${field.id}-hint`;
+        hint.className = 'field-hint';
+        hint.textContent = field.hint;
+        input.setAttribute('aria-describedby', hint.id);
+        wrapper.append(hint);
+      }
+      form.append(wrapper);
+    });
+
+    const tabs = document.getElementById('platform-tabs');
+    const editor = document.getElementById('post-content');
+    const feed = document.getElementById('preview-feed');
+    const platformButtons = new Map();
+    PLATFORMS.forEach(platform => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = platform.label || platform.name;
+      button.setAttribute('aria-label', `編輯${platform.name}貼文`);
+      button.setAttribute('aria-controls', 'post-content');
+      button.addEventListener('click', () => switchPlatform(platform.id));
+      platformButtons.set(platform.id, button);
+      tabs.append(button);
+    });
+
+    // 以文字節點顯示輸入，貼文中的標籤或程式碼都只會當作文字。
+    function element(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    }
+
+    function avatar() {
+      const node = element('div', 'avatar', BRAND.name.slice(0, 1));
+      node.setAttribute('aria-hidden', 'true');
+      return node;
+    }
+
+    function makeProfile(accountMode) {
+      const profile = element('div', 'profile');
+      const details = element('div');
+      const account = BRAND.accounts[activePlatform];
+      const missing = !account || account.includes('待補');
+      details.append(element('div', `profile-name${accountMode && missing ? ' is-placeholder' : ''}`,
+        accountMode ? (missing ? '帳號名稱待補' : account) : BRAND.name));
+      if (!accountMode) details.append(element('div', 'profile-caption', '剛剛 · 公開'));
+      profile.append(avatar(), details, element('span', 'profile-menu', '⋯'));
+      return profile;
+    }
+
+    function makeText() {
+      const text = element('p', 'preview-text');
+      text.id = 'live-post-text';
+      return text;
+    }
+
+    function renderPreview() {
+      feed.querySelectorAll('video').forEach(video => video.pause());
+      feed.replaceChildren();
+      feed.className = `preview-feed${activePlatform === 'line' ? ' chat-feed' : ''}`;
+      const platform = PLATFORMS.find(item => item.id === activePlatform);
+      document.getElementById('phone-title').textContent = activePlatform === 'line' ? `‹　${BRAND.name}　☰` : `${platform.label}　貼文預覽`;
+      document.getElementById('preview-phone').setAttribute('aria-label', `${platform.name}貼文手機預覽`);
+      const navigation = document.getElementById('phone-nav');
+      navigation.className = activePlatform === 'line' ? 'phone-nav chat-composer' : 'phone-nav';
+      navigation.textContent = activePlatform === 'ig' ? '⌂　⌕　＋　♡　◎' : activePlatform === 'line' ? '＋　輸入訊息…　☺' : '⌂　♧　☰';
+
+      if (activePlatform === 'line') {
+        feed.append(element('div', 'chat-day', '今天'));
+        const row = element('div', 'chat-row');
+        const message = element('div', 'chat-message');
+        message.append(element('p', 'chat-name', BRAND.name));
+        const bubble = element('div', 'chat-bubble');
+        bubble.append(makeText(), makeMediaSlot());
+        const bubbleRow = element('div', 'chat-bubble-row');
+        const time = element('time', 'chat-time', new Date().toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', hour12: false }));
+        time.id = 'line-preview-time';
+        time.dateTime = new Date().toISOString();
+        time.title = '手機預覽示意時間，非實際發送時間';
+        bubbleRow.append(bubble, time);
+        message.append(bubbleRow);
+        row.append(avatar(), message);
+        feed.append(row);
+      } else {
+        const post = element('article', 'preview-post');
+        post.append(makeProfile(activePlatform === 'ig'));
+        if (activePlatform === 'ig') {
+          post.append(makeMediaSlot(), element('div', 'ig-actions', '♡ 💬 ➤'), makeText());
+        } else {
+          const expand = element('button', 'fb-expand', '顯示更多');
+          expand.id = 'fb-expand-toggle';
+          expand.type = 'button';
+          expand.hidden = true;
+          expand.setAttribute('aria-controls', 'live-post-text');
+          expand.addEventListener('click', () => { fbExpanded = !fbExpanded; updatePreviewText(); });
+          post.append(makeText(), expand, makeMediaSlot());
+          const actions = element('div', 'preview-actions');
+          ['讚', '留言', '分享'].forEach(label => actions.append(element('span', '', label)));
+          post.append(actions);
+        }
+        feed.append(post);
+      }
+      updatePreviewText();
+      updateMediaPreview();
+      feed.scrollTop = 0;
+    }
+
+    function updatePreviewText() {
+      const node = document.getElementById('live-post-text');
+      const text = drafts[activePlatform];
+      const empty = !text.trim();
+      node.textContent = empty ? '在中間的貼文框輸入文字，這裡會立即顯示。' : text;
+      node.className = `preview-text${empty ? ' is-placeholder' : ''}`;
+      if (activePlatform === 'fb') {
+        const expandable = !empty && (Array.from(text).length > 100 || text.split('\n').length > 5);
+        if (!expandable) fbExpanded = false;
+        const toggle = document.getElementById('fb-expand-toggle');
+        toggle.hidden = !expandable;
+        toggle.textContent = fbExpanded ? '收合' : '顯示更多';
+        toggle.setAttribute('aria-expanded', String(fbExpanded));
+        if (expandable && !fbExpanded) node.className += ' fb-collapsed';
+      }
+      updateWordCount();
+    }
+
+    function countPostCharacters(text) {
+      // 依品牌規格：標點計入，空白、換行與網址不計。
+      const content = text.replace(/https?:\/\/[^\s\u3000-\u303f\uff00-\uffef\u3400-\u9fff<>"']+/gi, match => {
+        const punctuation = match.match(/[.,!?;:)\]}]+$/);
+        return punctuation ? punctuation[0] : '';
+      }).replace(/\s/gu, '');
+      return typeof Intl.Segmenter === 'function'
+        ? Array.from(new Intl.Segmenter('zh-Hant', { granularity: 'grapheme' }).segment(content)).length
+        : Array.from(content).length;
+    }
+
+    function updateWordCount() {
+      const platform = PLATFORMS.find(item => item.id === activePlatform);
+      const count = countPostCharacters(editor.value);
+      const over = count > platform.maxLength;
+      const counter = document.getElementById('word-count');
+      counter.textContent = `目前 ${count}／${platform.maxLength} 字${over ? '，超過了' : ''}`;
+      counter.className = `word-count${over ? ' over-limit' : ''}`;
+    }
+
+    function updatePictureText() {
+      if (activePlatform !== 'ig') return;
+      const value = document.getElementById(`material-${MATERIAL_FIELDS[0].id}`).value;
+      const picture = document.getElementById('ig-picture-text');
+      if (!picture) return;
+      const empty = !value.trim();
+      picture.textContent = empty ? '請填寫預計發布日期' : value;
+      picture.className = `preview-image preview-image-ig${empty ? ' is-placeholder' : ''}`;
+    }
+
+    function makeMediaSlot() {
+      const slot = element('div', 'preview-media');
+      slot.id = 'live-media-preview';
+      return slot;
+    }
+
+    function updateMediaPreview() {
+      const slot = document.getElementById('live-media-preview');
+      if (!slot) return;
+      slot.querySelectorAll('video').forEach(video => video.pause());
+      slot.replaceChildren();
+      if (!mediaFiles.length) {
+        if (activePlatform === 'ig') {
+          const picture = element('div', 'preview-image preview-image-ig');
+          picture.id = 'ig-picture-text';
+          slot.append(picture);
+          updatePictureText();
+          slot.append(makeIGUploadButton(false));
+        } else if (activePlatform === 'fb') {
+          slot.append(element('div', 'preview-image preview-image-fb', '選取照片或影片後，會顯示在這裡。'));
+        }
+        return;
+      }
+      previewMediaIndex = Math.min(previewMediaIndex, mediaFiles.length - 1);
+      const file = mediaFiles[previewMediaIndex];
+      const frame = element('div', `media-frame media-frame-${activePlatform}`);
+      const isImage = String(file.type || '').startsWith('image/')
+        || /^data:image\//i.test(file.dataUrl)
+        || /\.(png|jpe?g|webp|gif|avif|bmp|heic|heif)$/i.test(file.name);
+      const media = element(isImage ? 'img' : 'video');
+      media.src = file.dataUrl;
+      if (isImage) {
+        media.alt = file.name;
+      } else {
+        media.controls = true;
+        media.playsInline = true;
+        media.preload = 'metadata';
+        media.setAttribute('aria-label', `影片預覽：${file.name}`);
+      }
+      const caption = element('p', 'media-caption', file.name);
+      media.addEventListener('error', () => {
+        caption.textContent = `${file.name}：${isImage ? '瀏覽器無法顯示此圖片，可改用 PNG 或 JPG' : '此影片格式無法在瀏覽器播放'}，檔案仍保留在素材中。`;
+      });
+      frame.append(media);
+      slot.append(frame);
+      if (mediaFiles.length > 1) {
+        const controls = element('div', 'media-controls');
+        const previous = element('button', '', '上一個');
+        const next = element('button', '', '下一個');
+        previous.type = next.type = 'button';
+        previous.setAttribute('aria-label', '預覽上一個附件');
+        next.setAttribute('aria-label', '預覽下一個附件');
+        previous.addEventListener('click', () => {
+          previewMediaIndex = (previewMediaIndex - 1 + mediaFiles.length) % mediaFiles.length;
+          updateMediaPreview();
+        });
+        next.addEventListener('click', () => {
+          previewMediaIndex = (previewMediaIndex + 1) % mediaFiles.length;
+          updateMediaPreview();
+        });
+        controls.append(previous, element('span', 'media-count', `${previewMediaIndex + 1}／${mediaFiles.length}`), next);
+        slot.append(controls);
+      }
+      slot.append(caption);
+      if (activePlatform === 'ig') slot.append(makeIGUploadButton(true));
+    }
+
+    function makeIGUploadButton(hasMedia) {
+      const button = element('button', 'ig-upload', hasMedia ? '更換一張照片' : '＋ 選一張照片');
+      button.type = 'button';
+      button.addEventListener('click', () => {
+        const input = document.getElementById('ig-photo-input');
+        input.value = '';
+        input.click();
+      });
+      return button;
+    }
+
+    function switchPlatform(id) {
+      drafts[activePlatform] = editor.value;
+      activePlatform = id;
+      const platform = PLATFORMS.find(item => item.id === id);
+      editor.value = drafts[id];
+      editor.placeholder = `在這裡貼上或修改 ${platform.label} 貼文……`;
+      document.getElementById('post-label').textContent = `${platform.label} 貼文內容`;
+      platformButtons.forEach((button, platformId) => {
+        const selected = platformId === id;
+        button.className = `platform-button${selected ? ' active' : ''}`;
+        button.setAttribute('aria-pressed', String(selected));
+      });
+      renderPreview();
+      if (!initializing) autoSaveWorkspace();
+    }
+
+    editor.addEventListener('input', () => {
+      drafts[activePlatform] = editor.value;
+      updatePreviewText();
+      autoSaveWorkspace();
+    });
+    document.getElementById(`material-${MATERIAL_FIELDS[0].id}`).addEventListener('input', updatePictureText);
+    MATERIAL_FIELDS.filter(field => field.type !== 'file').forEach(field => {
+      document.getElementById(`material-${field.id}`).addEventListener('input', autoSaveWorkspace);
+    });
+    document.getElementById('material-media').addEventListener('change', readSelectedMedia);
+    document.getElementById('ig-photo-input').addEventListener('change', () => {
+      const files = Array.from(document.getElementById('ig-photo-input').files || []);
+      if (files.length) readSelectedMedia(files.slice(0, 1));
+    });
+
+    function setStatus(message) {
+      document.getElementById('work-status').textContent = message;
+    }
+
+    function materialValues() {
+      return Object.fromEntries(MATERIAL_FIELDS.filter(field => field.type !== 'file').map(field => [
+        field.id, document.getElementById(`material-${field.id}`).value
+      ]));
+    }
+
+    function renderAIQuestions() {
+      document.getElementById('ai-questions').hidden = !aiQuestions.trim();
+      document.getElementById('ai-questions-text').textContent = aiQuestions;
+    }
+
+    function unwrapCodeFence(text) {
+      return text.trim().replace(/^```[^\n]*\n([\s\S]*?)\n```$/, '$1').trim();
+    }
+
+    function parseAIReply(text) {
+      const source = unwrapCodeFence(text.replace(/\r\n?/g, '\n'));
+      const headings = Array.from(source.matchAll(/^[ \t]*(?:#{1,6}[ \t]*)?(?:\*\*)?[ \t]*【(FB|IG|LINE|要問我的|還不確定的事|還不確定，想請你補充)】(?:\*\*)?[ \t]*(?:\n|$)/gmi));
+      const sections = new Map();
+      const duplicates = [];
+      headings.forEach((heading, index) => {
+        const name = heading[1].toUpperCase();
+        const key = ['FB', 'IG', 'LINE'].includes(name) ? name.toLowerCase() : 'questions';
+        if (sections.has(key)) duplicates.push(heading[1]);
+        const body = source.slice(heading.index + heading[0].length, index + 1 < headings.length ? headings[index + 1].index : source.length);
+        sections.set(key, unwrapCodeFence(body));
+      });
+      return { sections, duplicates };
+    }
+
+    function distributeAIReply() {
+      const status = document.getElementById('import-ai-status');
+      const result = parseAIReply(document.getElementById('ai-reply-input').value);
+      if (result.duplicates.length) {
+        status.textContent = `標題重複：${result.duplicates.join('、')}。請每個平台只保留一段，再重新分配；目前貼文未變更。`;
+        return;
+      }
+      const incoming = PLATFORMS.filter(platform => result.sections.get(platform.id)?.trim());
+      const questions = result.sections.get('questions') || '';
+      if (!incoming.length && !questions.trim()) {
+        status.textContent = '沒有找到可分配的內容。請用【FB】【IG】【LINE】各自獨立一行，下面放貼文；目前貼文未變更。';
+        return;
+      }
+      drafts[activePlatform] = editor.value;
+      incoming.forEach(platform => { drafts[platform.id] = result.sections.get(platform.id); });
+      aiQuestions = questions;
+      editor.value = drafts[activePlatform];
+      renderPreview();
+      renderAIQuestions();
+      const saved = autoSaveWorkspace();
+      document.getElementById('import-ai-dialog').close();
+      setStatus((incoming.length ? `已分到 ${incoming.map(platform => platform.label).join('、')}；未提供的平台保留原文。` : '已更新「要問我的」。')
+        + (saved ? '已自動暫存。' : '自動暫存未成功，請查看左側提示。'));
+    }
+
+    function formatPublishDate(value) {
+      const match = value.trim().match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+      if (!match) return `${value}（日期格式待確認，請使用 YYYY-MM-DD）`;
+      const year = Number(match[1]), month = Number(match[2]), day = Number(match[3]);
+      const date = new Date(0);
+      date.setUTCFullYear(year, month - 1, day);
+      date.setUTCHours(0, 0, 0, 0);
+      if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
+        return `${value}（日期無效，星期待確認）`;
+      }
+      const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+      return `${match[1]}/${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}（${weekdays[date.getUTCDay()]}）`;
+    }
+
+    function composePrompt() {
+      const labels = PLATFORMS.map(platform => platform.label).join('、');
+      const materials = MATERIAL_FIELDS.map(field => {
+        const input = document.getElementById(`material-${field.id}`);
+        let value = field.type === 'file'
+          ? (mediaFiles.length ? mediaFiles.map(file => file.name) : Array.from(input.files || []).map(file => file.name)).join('、')
+          : input.value.trim();
+        if (field.id === 'date' && value) value = formatPublishDate(value);
+        return `${field.label}：${value || (field.required ? '未填（不要自行補寫，必要資訊請在文末詢問）' : '未指定（選填，不自行補寫）')}`;
+      }).join('\n');
+      const parts = [
+        '（這段只要回覆文字，不要建立或修改任何檔案。）',
+        `你是【${BRAND.name}】的小編。請照品牌規格，用素材卡的內容，寫【${labels}】的貼文，每個平台一篇。`,
+        '規則：素材卡上沒有的事不要寫；只能在某個平台說的，只寫在那個平台；先不要講的，每一篇都不能寫；還不確定的不要寫，寫完列出來問我。',
+        '這些規則優先於品牌規格裡的歷史範例與缺資料處理方式。選填未指定時不強行加入提問或行動呼籲；不自行編造故事、對白或營運資訊。',
+        `回覆格式：每個平台用 ${PLATFORMS.map(platform => `【${platform.label}】`).join('、')} 這樣的標題分開。還不確定的事集中在所有貼文後，列出來問我。`,
+        '【品牌規格】', settings.brandSpec,
+        '【這次素材卡】', materials,
+        '附件只有檔名，沒有圖片或影片內容；不要假裝看過附件。'
+      ];
+      if (settings.checklist.trim()) parts.push('寫完照這張清單檢查，有 ❌ 先自己改好', settings.checklist);
+      return parts.join('\n\n');
+    }
+
+    function restoreSettings() {
+      try {
+        const raw = localStorage.getItem(SETTINGS_KEY);
+        if (!raw) return;
+        const saved = JSON.parse(raw);
+        if (!saved || typeof saved.brandSpec !== 'string' || typeof saved.checklist !== 'string') throw new Error('設定格式錯誤');
+        settings = { brandSpec: saved.brandSpec, checklist: saved.checklist };
+      } catch {
+        document.getElementById('settings-status').textContent = '無法讀取上次設定，目前使用內建品牌規格。可重新填寫並儲存。';
+      }
+    }
+
+    function saveSettings() {
+      const next = {
+        brandSpec: document.getElementById('settings-brand').value,
+        checklist: document.getElementById('settings-checklist').value
+      };
+      try {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
+        settings = next;
+        document.getElementById('settings-status').textContent = '已儲存，重新開啟網頁仍會保留。下一次組好指令將使用這份設定。';
+      } catch {
+        document.getElementById('settings-status').textContent = '儲存失敗，瀏覽器儲存空間無法使用。請先複製文字保留內容，再重試。';
+      }
+    }
+
+    async function copyText(text, statusNode) {
+      if (!text.trim()) {
+        statusNode.textContent = '目前還沒有內容可以複製，請先輸入貼文。';
+        return false;
+      }
+      try {
+        if (!navigator.clipboard?.writeText) throw new Error('改用本機複製方式');
+        await navigator.clipboard.writeText(text);
+      } catch {
+        // 支援直接雙擊開啟的本機 HTML，以及剪貼簿 API 不可用的瀏覽器。
+        const focused = document.activeElement;
+        const helper = document.createElement('textarea');
+        helper.value = text;
+        helper.setAttribute('aria-label', '準備複製的內容');
+        const host = document.getElementById('prompt-dialog').open
+          ? document.getElementById('prompt-dialog') : document.body;
+        host.append(helper);
+        helper.select();
+        let copied = false;
+        try { copied = document.execCommand('copy'); } catch { copied = false; }
+        helper.remove();
+        focused?.focus();
+        if (!copied) {
+          statusNode.textContent = '瀏覽器未允許複製，請選取文字後按 Ctrl+C。';
+          return false;
+        }
+      }
+      statusNode.textContent = '已複製到剪貼簿。';
+      return true;
+    }
+
+    function makePostId() {
+      return typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+    }
+
+    function taiwanDate(iso) {
+      const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(iso));
+      const part = type => parts.find(item => item.type === type).value;
+      return [part('year'), part('month'), part('day')].join('-');
+    }
+
+    function snapshot() {
+      drafts[activePlatform] = editor.value;
+      const now = new Date().toISOString();
+      return {
+        version: 2, id: currentPostId, createdAt: currentCreatedAt, status: currentPostStatus,
+        name: taiwanDate(now) + '＋' + (document.getElementById('material-' + MATERIAL_FIELDS[0].id).value.trim() || '未填日期'),
+        savedAt: now, materials: { ...materialValues(), media: mediaFiles },
+        drafts: { ...drafts }, activePlatform, aiQuestions
+      };
+    }
+
+    function readPosts() {
+      const raw = localStorage.getItem(POSTS_KEY);
+      if (!raw) return [];
+      const data = JSON.parse(raw);
+      if (!data || data.version !== 1 || !Array.isArray(data.posts) || data.posts.some(post => !post || typeof post.id !== 'string')) {
+        throw new Error('存檔清單格式錯誤');
+      }
+      return data.posts;
+    }
+
+    function writePosts(posts) {
+      localStorage.setItem(POSTS_KEY, JSON.stringify({ version: 1, posts }));
+    }
+
+    function autoSaveWorkspace() {
+      if (initializing) return false;
+      const status = document.getElementById('autosave-status');
+      if (mediaReading || mediaReadFailed) {
+        status.textContent = mediaReading ? '正在讀取附件，完成後會自動暫存。' : '附件讀取失敗，請重新選取後再存檔。';
+        return false;
+      }
+      try {
+        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(snapshot()));
+        status.textContent = '已自動暫存目前編輯內容。';
+        return true;
+      } catch {
+        status.textContent = '自動暫存失敗：附件可能太大或瀏覽器儲存空間不足。請縮小附件或先複製文字。原有存檔仍保留。';
+        return false;
+      }
+    }
+
+    function saveWorkspace() {
+      if (mediaReading || mediaReadFailed) {
+        setStatus(mediaReading ? '附件仍在讀取，請稍後再按存檔。' : '附件讀取失敗，請重新選取後再存檔。');
+        return;
+      }
+      try {
+        const posts = readPosts();
+        const data = snapshot();
+        const existing = posts.findIndex(post => post.id === data.id);
+        if (existing >= 0) posts[existing] = data;
+        else posts.push(data);
+        writePosts(posts);
+        const autoSaved = autoSaveWorkspace();
+        setStatus((existing >= 0 ? '已更新：' : '已存檔：') + data.name + (autoSaved ? '' : '。目前編輯內容的自動暫存未成功，詳見左側提示。'));
+      } catch {
+        setStatus('存檔失敗：儲存空間不足、附件太大，或存檔清單無法讀取。請先複製文字保留內容；原有存檔未覆蓋。');
+      }
+    }
+
+    function readSelectedMedia(selectedFiles) {
+      const input = document.getElementById('material-media');
+      const files = Array.isArray(selectedFiles) ? selectedFiles : Array.from(input.files || []);
+      const version = ++mediaReadVersion;
+      mediaReading = true;
+      mediaReadFailed = false;
+      document.getElementById('autosave-status').textContent = '正在讀取附件，完成後會自動暫存。';
+      Promise.all(files.map(file => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve({ name: file.name, type: file.type, lastModified: file.lastModified, dataUrl: reader.result });
+        reader.onerror = () => reject(new Error('無法讀取附件'));
+        reader.onabort = () => reject(new Error('附件讀取中止'));
+        reader.readAsDataURL(file);
+      }))).then(files => {
+        if (version !== mediaReadVersion) return;
+        mediaFiles = files;
+        previewMediaIndex = 0;
+        mediaReading = false;
+        if (Array.isArray(selectedFiles)) restoreMediaInput();
+        else updateMediaHint();
+        updateMediaPreview();
+        autoSaveWorkspace();
+      }).catch(() => {
+        if (version !== mediaReadVersion) return;
+        mediaReading = false;
+        mediaReadFailed = true;
+        document.getElementById('autosave-status').textContent = '附件讀取失敗。請重新選取檔案，先前存檔未變更。';
+      });
+    }
+
+    function updateMediaHint() {
+      const field = MATERIAL_FIELDS.find(field => field.id === 'media');
+      document.getElementById('material-media-hint').textContent = mediaFiles.length
+        ? '已保留附件：' + mediaFiles.map(file => file.name).join('、')
+        : field.hint;
+    }
+
+    function restoreMediaInput() {
+      const input = document.getElementById('material-media');
+      input.value = '';
+      try {
+        const transfer = new DataTransfer();
+        mediaFiles.forEach(file => {
+          const encoded = file.dataUrl.split(',')[1];
+          const bytes = Uint8Array.from(atob(encoded), character => character.charCodeAt(0));
+          transfer.items.add(new File([bytes], file.name, { type: file.type, lastModified: file.lastModified }));
+        });
+        input.files = transfer.files;
+      } catch {
+        // 部分瀏覽器不允許重設檔案欄位；附件內容仍保存在 mediaFiles，並顯示檔名。
+      }
+      updateMediaHint();
+    }
+
+    function applySnapshot(data) {
+      if (!data || typeof data !== 'object') throw new Error('存檔資料無法讀取');
+      mediaReadVersion++;
+      mediaReading = false;
+      mediaReadFailed = false;
+      previewMediaIndex = 0;
+      fbExpanded = false;
+      currentPostId = typeof data.id === 'string' ? data.id : makePostId();
+      currentPostStatus = normalizePostStatus(data.status);
+      currentCreatedAt = typeof data.createdAt === 'string' ? data.createdAt : new Date().toISOString();
+      aiQuestions = typeof data.aiQuestions === 'string' ? data.aiQuestions : '';
+      renderAIQuestions();
+      PLATFORMS.forEach(platform => { drafts[platform.id] = typeof data.drafts?.[platform.id] === 'string' ? data.drafts[platform.id] : ''; });
+      MATERIAL_FIELDS.filter(field => field.type !== 'file').forEach(field => {
+        document.getElementById('material-' + field.id).value = typeof data.materials?.[field.id] === 'string' ? data.materials[field.id] : '';
+      });
+      mediaFiles = Array.isArray(data.materials?.media) ? data.materials.media.filter(file => file && typeof file.name === 'string' && typeof file.dataUrl === 'string') : [];
+      restoreMediaInput();
+      editor.value = drafts[activePlatform];
+      switchPlatform(PLATFORMS.some(platform => platform.id === data.activePlatform) ? data.activePlatform : PLATFORMS[0].id);
+    }
+
+    function openPost(id) {
+      try {
+        const post = readPosts().find(post => post.id === id);
+        if (!post) throw new Error('找不到存檔');
+        // 先保留目前編輯的暫存；開啟完成後，新的編輯對象也立即暫存。
+        if (!autoSaveWorkspace()) {
+          document.getElementById('my-posts-status').textContent = '目前內容尚未成功暫存，請先處理左側提示，再開啟其他貼文。';
+          return;
+        }
+        applySnapshot(post);
+        autoSaveWorkspace();
+        document.getElementById('my-posts-dialog').close();
+        setStatus('已打開：' + post.name);
+      } catch {
+        document.getElementById('my-posts-status').textContent = '無法打開這篇存檔，原有清單未變更。';
+      }
+    }
+
+    function deletePost(id) {
+      if (!window.confirm('確定嗎？')) return;
+      try {
+        const posts = readPosts();
+        writePosts(posts.filter(post => post.id !== id));
+        if (currentPostId === id) {
+          currentPostId = makePostId();
+          currentPostStatus = 'draft';
+          currentCreatedAt = new Date().toISOString();
+          autoSaveWorkspace();
+          setStatus('已刪除存檔。目前畫面的內容保留為未存檔草稿。');
+        }
+        renderPostList();
+        document.getElementById('my-posts-status').textContent = '已刪除。';
+      } catch {
+        document.getElementById('my-posts-status').textContent = '刪除失敗，請稍後再試。';
+      }
+    }
+
+    function normalizePostStatus(status) {
+      return POST_STATUSES.some(item => item.id === status) ? status : 'draft';
+    }
+
+    function changePostStatus(id, status) {
+      if (!POST_STATUSES.some(item => item.id === status)) return false;
+      try {
+        const posts = readPosts();
+        const post = posts.find(item => item.id === id);
+        if (!post) throw new Error('找不到貼文');
+        post.status = status;
+        post.statusChangedAt = new Date().toISOString();
+        writePosts(posts);
+        let autoSaved = true;
+        if (currentPostId === id) {
+          currentPostStatus = status;
+          autoSaved = autoSaveWorkspace();
+        }
+        renderPostList();
+        const label = POST_STATUSES.find(item => item.id === status).label;
+        document.getElementById('my-posts-status').textContent = '已改為「' + label + '」並儲存。' + (autoSaved ? '' : '目前編輯內容的自動暫存未成功，請查看左側提示。');
+        document.getElementById('post-status-' + id)?.focus({ preventScroll: true });
+        return true;
+      } catch {
+        document.getElementById('my-posts-status').textContent = '狀態儲存失敗，原有存檔未變更。';
+        return false;
+      }
+    }
+
+    function renderPostList() {
+      const list = document.getElementById('saved-post-list');
+      list.replaceChildren();
+      document.getElementById('my-posts-status').textContent = '';
+      try {
+        const posts = readPosts().sort((a, b) => {
+          const dateA = String(a.materials?.date || '').replaceAll('/', '-');
+          const dateB = String(b.materials?.date || '').replaceAll('/', '-');
+          return (dateA || '9999').localeCompare(dateB || '9999') || String(b.savedAt).localeCompare(String(a.savedAt));
+        });
+        const unfinished = posts.filter(post => normalizePostStatus(post.status) !== 'done').length;
+        document.getElementById('board-summary').textContent = '共 ' + posts.length + ' 篇，尚未完成 ' + unfinished + ' 篇。依預計發布日期排列，改狀態後會立即儲存。';
+        POST_STATUSES.forEach(stage => {
+          const column = element('section', 'board-column board-column-' + stage.id);
+          const heading = element('h3', 'board-heading', stage.label);
+          heading.id = 'board-heading-' + stage.id;
+          column.setAttribute('aria-labelledby', heading.id);
+          const stagePosts = posts.filter(post => normalizePostStatus(post.status) === stage.id);
+          heading.append(element('span', 'board-count', String(stagePosts.length)));
+          column.append(heading);
+          const cards = element('div', 'board-cards');
+          if (!stagePosts.length) cards.append(element('p', 'board-empty', '這一欄目前沒有貼文。'));
+          stagePosts.forEach(post => {
+            const row = element('article', 'saved-post-row');
+            row.append(element('h4', 'saved-post-name', post.name || '未命名貼文'));
+            if (post.materials?.topic) row.append(element('p', 'post-topic', post.materials.topic));
+            row.append(element('p', 'post-schedule', '預計發布：' + (post.materials?.date ? formatPublishDate(post.materials.date) : '未填日期')));
+            const date = new Date(post.savedAt);
+            const time = element('time', '', '存檔時間：' + (Number.isNaN(date.getTime()) ? '未記錄' : date.toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', hour12: false })));
+            if (!Number.isNaN(date.getTime())) time.dateTime = post.savedAt;
+            row.append(time);
+            const label = element('label', 'post-status-label', '狀態');
+            const select = element('select', 'post-status-select');
+            select.id = 'post-status-' + post.id;
+            label.htmlFor = select.id;
+            select.setAttribute('aria-label', (post.name || '未命名貼文') + '的狀態');
+            POST_STATUSES.forEach(item => {
+              const option = element('option', '', item.label);
+              option.value = item.id;
+              select.append(option);
+            });
+            select.value = normalizePostStatus(post.status);
+            select.addEventListener('change', () => {
+              if (!changePostStatus(post.id, select.value)) select.value = normalizePostStatus(post.status);
+            });
+            label.append(select);
+            row.append(label);
+            const actions = element('div', 'editor-actions');
+            const open = element('button', 'action-button', '打開');
+            const remove = element('button', 'action-button secondary', '刪除');
+            open.type = remove.type = 'button';
+            open.addEventListener('click', () => openPost(post.id));
+            remove.addEventListener('click', () => deletePost(post.id));
+            actions.append(open, remove);
+            row.append(actions);
+            cards.append(row);
+          });
+          column.append(cards);
+          list.append(column);
+        });
+      } catch {
+        document.getElementById('board-summary').textContent = '目前無法顯示貼文看板。';
+        document.getElementById('my-posts-status').textContent = '無法讀取存檔清單，資料未變更。';
+      }
+    }
+
+    function newPost() {
+      // 先成功寫入空白暫存才清空畫面；正式存檔清單不變。
+      const blank = { version: 2, id: makePostId(), createdAt: new Date().toISOString(), materials: {}, drafts: {}, activePlatform: PLATFORMS[0].id };
+      try { localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(blank)); }
+      catch { setStatus('無法建立新的一篇：瀏覽器暫存空間無法使用，畫面內容尚未清空。'); return; }
+      applySnapshot(blank);
+      document.getElementById('composed-prompt').value = '';
+      document.getElementById('ai-reply-input').value = '';
+      autoSaveWorkspace();
+      setStatus('已開始新的一篇，存過的貼文仍在「我的貼文」。');
+    }
+
+    function restoreWorkspace() {
+      try {
+        const raw = localStorage.getItem(AUTOSAVE_KEY);
+        if (raw) {
+          const data = JSON.parse(raw);
+          if (!data || data.version !== 2) throw new Error('暫存格式錯誤');
+          applySnapshot(data);
+          document.getElementById('autosave-status').textContent = '已還原上次自動暫存的內容。';
+          return;
+        }
+        const legacyRaw = localStorage.getItem(STORAGE_KEY);
+        if (legacyRaw) {
+          const legacy = JSON.parse(legacyRaw);
+          if (!legacy || legacy.version !== 1) throw new Error('舊版存檔格式錯誤');
+          legacy.id = 'legacy-workspace-v1';
+          legacy.createdAt = legacy.savedAt || new Date().toISOString();
+          applySnapshot(legacy);
+          const posts = readPosts();
+          if (!posts.some(post => post.id === legacy.id)) {
+            const migrated = snapshot();
+            migrated.savedAt = legacy.savedAt || migrated.savedAt;
+            posts.push(migrated);
+            writePosts(posts);
+          }
+          localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(snapshot()));
+          setStatus('已還原舊版存檔，並加入「我的貼文」。');
+        } else {
+          editor.value = drafts[activePlatform];
+          switchPlatform(activePlatform);
+        }
+      } catch {
+        editor.value = drafts[activePlatform];
+        switchPlatform(activePlatform);
+        setStatus('無法完整讀取上次存檔，原有資料未覆蓋。請先查看「我的貼文」或保留畫面內容。');
+      }
+    }
+
+    function showComposedPrompt() {
+      document.getElementById('composed-prompt').value = composePrompt();
+      document.getElementById('prompt-status').textContent = '';
+      document.getElementById('prompt-dialog').showModal();
+    }
+    document.getElementById('compose-button').addEventListener('click', showComposedPrompt);
+    document.getElementById('chatgpt-button').addEventListener('click', async () => {
+      showComposedPrompt();
+      const status = document.getElementById('prompt-status');
+      const copying = copyText(document.getElementById('composed-prompt').value, status);
+      // 新分頁由使用者點擊時直接開啟；素材內容只進剪貼簿，不放入網址。
+      try { window.open('https://chatgpt.com/', '_blank', 'noopener,noreferrer'); }
+      catch { /* 對話框中保留手動開啟的連結。 */ }
+      const copied = await copying;
+      if (copied) status.textContent = '三平台指令已複製。請在 ChatGPT 貼上並送出，一次取得 FB、LINE、IG 貼文。';
+    });
+    document.getElementById('copy-button').addEventListener('click', () => copyText(editor.value, document.getElementById('work-status')));
+    document.getElementById('save-button').addEventListener('click', saveWorkspace);
+    document.getElementById('copy-prompt-button').addEventListener('click', () => copyText(
+      document.getElementById('composed-prompt').value, document.getElementById('prompt-status')
+    ));
+    document.getElementById('close-prompt-button').addEventListener('click', () => document.getElementById('prompt-dialog').close());
+    document.getElementById('import-ai-button').addEventListener('click', () => {
+      document.getElementById('import-ai-status').textContent = '';
+      document.getElementById('import-ai-dialog').showModal();
+    });
+    document.getElementById('distribute-ai-button').addEventListener('click', distributeAIReply);
+    document.getElementById('close-import-ai-button').addEventListener('click', () => document.getElementById('import-ai-dialog').close());
+    document.getElementById('settings-button').addEventListener('click', () => {
+      document.getElementById('settings-brand').value = settings.brandSpec;
+      document.getElementById('settings-checklist').value = settings.checklist;
+      document.getElementById('settings-dialog').showModal();
+    });
+    document.getElementById('save-settings-button').addEventListener('click', saveSettings);
+    document.getElementById('close-settings-button').addEventListener('click', () => document.getElementById('settings-dialog').close());
+    restoreSettings();
+    document.getElementById('my-posts-button').addEventListener('click', () => {
+      renderPostList();
+      document.getElementById('my-posts-dialog').showModal();
+    });
+    document.getElementById('close-my-posts-button').addEventListener('click', () => document.getElementById('my-posts-dialog').close());
+    document.getElementById('new-post-button').addEventListener('click', newPost);
+    window.addEventListener('pagehide', autoSaveWorkspace);
+    restoreWorkspace();
+    initializing = false;
+  </script>
+</body>
+</html>
