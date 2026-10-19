@@ -23,6 +23,8 @@
       --shadow: #302e2912;
       --chat-background: #dcebf5;
       --danger: #b42318;
+      --review-error-bg: #fde8e7;
+      --review-warning-bg: #fff3cc;
       --status-draft: #e8e1d8;
       --status-review: #f7e7b8;
       --status-done: #d7e8dc;
@@ -179,10 +181,31 @@
     .chat-bubble .preview-text { padding: 0; }
     .material-actions { padding: 0 23px 23px; display: grid; gap: 10px; }
     .editor-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px; }
+    .ai-helper { margin-top: 20px; border-top: 1px solid var(--line); padding-top: 18px; }
+    .ai-helper h3 { margin: 0 0 12px; font-size: 17px; }
+    .helper-history { max-height: 280px; overflow-y: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .helper-message { padding: 10px 0; border-bottom: 1px solid var(--line); }
+    .helper-message strong { display: block; margin-bottom: 5px; }
+    .helper-message p { margin: 0; line-height: 1.7; }
+    .helper-compose { display: flex; gap: 8px; margin-top: 12px; }
+    .helper-compose input { flex: 1; min-width: 0; }
+    .helper-shortcuts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
     .action-button { border: 1px solid var(--brand); border-radius: 6px; padding: 10px 16px; background: var(--brand); color: var(--header-ink); cursor: pointer; font-weight: 600; }
     .action-button.secondary { background: var(--paper); color: var(--brand-dark); }
     .material-actions .action-button { width: 100%; }
     .action-button:hover { background: var(--brand-dark); color: var(--header-ink); }
+    .action-button:disabled { opacity: 1; background: var(--soft); border-color: var(--line); color: var(--muted); cursor: wait; }
+    .ai-error { color: var(--danger); white-space: pre-wrap; }
+    .review-line { margin: 5px 0; padding: 7px 10px; border-radius: 5px; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .review-line.has-error { background: var(--review-error-bg); }
+    .review-line.has-warning { background: var(--review-warning-bg); }
+    .ai-warning { margin: 0; color: var(--brand-dark); font-size: 12px; white-space: pre-wrap; }
+    .ai-usage { margin: 0; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+    .ai-settings-group { margin: 0; padding: 16px; border: 1px solid var(--line); border-radius: 8px; display: grid; gap: 14px; min-width: 0; }
+    .ai-settings-group legend { padding: 0 7px; font-weight: 600; }
+    .settings-fields select { display: block; width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 6px; color: var(--ink); background: var(--paper); }
+    .ai-raw-response { min-height: 220px; margin-top: 8px; font-size: 12px; }
+    .ai-raw-panel summary { color: var(--brand-dark); cursor: pointer; font-size: 12px; }
     .work-status { margin: 10px 0 0; min-height: 24px; color: var(--brand-dark); font-size: 12px; }
     .prompt-dialog { width: min(760px, calc(100% - 32px)); max-height: 90vh; padding: 24px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); color: var(--ink); }
     .prompt-dialog::backdrop { background: var(--shadow); }
@@ -278,6 +301,18 @@
       <form id="material-form" aria-label="貼文素材卡" autocomplete="off"></form>
       <div class="material-actions">
         <button class="action-button" id="compose-button" type="button">🧩 組好指令</button>
+        <button class="action-button" id="write-ai-button" type="button">✨ 讓 AI 寫</button>
+        <p class="work-status" id="write-ai-status" role="status" aria-live="polite"></p>
+        <p class="ai-warning" id="ai-fallback-note" role="status" aria-live="polite"></p>
+        <p class="ai-usage" id="ai-usage-summary"></p>
+        <details class="ai-raw-panel" id="ai-raw-panel" hidden>
+          <summary>AI 回覆原文（可用 📥 貼回手動分）</summary>
+          <textarea class="ai-raw-response" id="ai-raw-response" aria-label="AI 回覆原文" readonly></textarea>
+        </details>
+        <section class="ai-questions" id="ai-questions" aria-labelledby="ai-questions-title" hidden>
+          <h3 id="ai-questions-title">要問我的</h3>
+          <p id="ai-questions-text"></p>
+        </section>
         <button class="action-button secondary" id="chatgpt-button" type="button">↗ 貼回 ChatGPT</button>
         <button class="action-button secondary" id="import-ai-button" type="button">📥 貼回 AI 寫好的</button>
         <p class="field-hint">複製三平台指令並開啟 ChatGPT，貼上送出即可一次取得 FB、LINE、IG 貼文。</p>
@@ -297,13 +332,28 @@
         <p class="word-count" id="word-count" role="status" aria-live="polite" aria-atomic="true" title="標點計入；空白、換行與網址不計入。">目前 0／650 字</p>
         <div class="editor-actions">
           <button class="action-button secondary" id="copy-button" type="button">📋 一鍵複製</button>
+          <button class="action-button secondary" id="undo-ai-button" type="button" disabled>↩ 復原上一版</button>
+          <button class="action-button secondary" id="review-ai-button" type="button">🔍 檢查官</button>
         </div>
+        <p class="work-status" id="review-ai-status" role="status" aria-live="polite"></p>
+        <section class="ai-helper" aria-labelledby="helper-title">
+          <h3 id="helper-title">💬 AI 小幫手</h3>
+          <div class="helper-history" id="helper-history" role="log" aria-live="polite" aria-label="目前平台的對話紀錄"></div>
+          <div class="helper-shortcuts" id="helper-shortcuts">
+            <button class="action-button secondary" type="button" data-instruction="短一點">短一點</button>
+            <button class="action-button secondary" type="button" data-instruction="換開頭">換開頭</button>
+            <button class="action-button secondary" type="button" data-instruction="少一點 emoji">少一點 emoji</button>
+            <button class="action-button secondary" type="button" data-instruction="更像範例">更像範例</button>
+          </div>
+          <label class="editor-label" for="helper-input">想怎麼修改？</label>
+          <div class="helper-compose">
+            <input id="helper-input" type="text" placeholder="例如：結尾再親切一點" autocomplete="off">
+            <button class="action-button" id="helper-send-button" type="button">送出</button>
+          </div>
+          <p class="work-status" id="helper-status" role="status" aria-live="polite"></p>
+        </section>
         <p class="editor-note">編輯內容會自動暫存；按「存檔」收進「我的貼文」，同一篇重存會更新。</p>
         <p class="work-status" id="work-status" role="status" aria-live="polite"></p>
-        <section class="ai-questions" id="ai-questions" aria-labelledby="ai-questions-title" hidden>
-          <h3 id="ai-questions-title">要問我的</h3>
-          <p id="ai-questions-text"></p>
-        </section>
       </div>
     </section>
     <aside class="panel preview-panel" aria-labelledby="preview-title">
@@ -327,9 +377,15 @@
     </aside>
   </main>
   <input id="ig-photo-input" type="file" accept="image/*" aria-label="選取一張 IG 預覽照片">
+  <dialog class="prompt-dialog" id="review-ai-dialog" aria-labelledby="review-ai-title">
+    <h2 id="review-ai-title">🔍 檢查官報告</h2>
+    <p>依按下「檢查官」時的貼文與素材審核；報告不會修改貼文。❌ 紅底、⚠️ 黃底。</p>
+    <div id="review-ai-report"></div>
+    <div class="editor-actions"><button class="action-button secondary" id="close-review-ai-button" type="button">關閉</button></div>
+  </dialog>
   <dialog class="prompt-dialog" id="import-ai-dialog" aria-labelledby="import-ai-title">
     <h2 id="import-ai-title">貼回 AI 寫好的</h2>
-    <p>整段貼上 AI 的回覆，使用獨立一行的【FB】【IG】【LINE】標題分段；【要問我的】會顯示在貼文框下方。分配時會取代有提供內容的平台，未提供的平台保留原文。</p>
+    <p>整段貼上 AI 的回覆，使用獨立一行的【FB】【IG】【LINE】標題分段；【要問我的】會顯示在素材卡按鈕下方。分配時會取代有提供內容的平台，未提供的平台保留原文。</p>
     <label class="editor-label" for="ai-reply-input">AI 的完整回覆</label>
     <textarea id="ai-reply-input" placeholder="【FB】&#10;臉書貼文……&#10;&#10;【IG】&#10;照片社群貼文……&#10;&#10;【LINE】&#10;通訊貼文……&#10;&#10;【要問我的】&#10;需要確認的問題……"></textarea>
     <div class="editor-actions">
@@ -358,6 +414,26 @@
         <label class="editor-label" for="settings-checklist">檢查清單</label>
         <textarea id="settings-checklist" placeholder="貼上寫完後要檢查的清單；沒有可留空"></textarea>
       </div>
+      <fieldset class="ai-settings-group">
+        <legend>第一組 OpenRouter</legend>
+        <div>
+        <label class="editor-label" for="settings-ai-key">AI 金鑰</label>
+        <input id="settings-ai-key" type="password" autocomplete="off" spellcheck="false" placeholder="輸入 OpenRouter API 金鑰" aria-describedby="ai-key-hint">
+        </div>
+        <div><label class="editor-label" for="settings-ai-model">模型</label><select id="settings-ai-model"></select></div>
+        <div><label class="editor-label" for="settings-ai-custom-model">或自己打模型名稱</label><input id="settings-ai-custom-model" type="text" placeholder="有填就用這個模型" spellcheck="false"></div>
+        <div><label class="editor-label" for="settings-ai-reasoning">思考</label><select id="settings-ai-reasoning"><option value="low">少想一點 low</option><option value="medium">多想一點 medium</option><option value="high">想很久 high</option></select></div>
+      </fieldset>
+      <fieldset class="ai-settings-group">
+        <legend>第二組 Gemini</legend>
+        <div><label class="editor-label" for="settings-gemini-key">Gemini 金鑰</label><input id="settings-gemini-key" type="password" autocomplete="off" spellcheck="false" placeholder="輸入 Gemini API 金鑰"></div>
+        <div><label class="editor-label" for="settings-gemini-model">Gemini 模型</label><select id="settings-gemini-model"></select></div>
+      </fieldset>
+      <div>
+        <label class="editor-label" for="settings-ai-priority">先用哪一組</label>
+        <select id="settings-ai-priority"><option value="fallback">先用 OpenRouter，失敗了自動換 Gemini</option><option value="gemini">只用 Gemini</option><option value="openrouter">只用 OpenRouter</option></select>
+        <p class="field-hint" id="ai-key-hint">金鑰只存在這個瀏覽器；依所選順序傳送品牌規格與素材文字。附件僅傳檔名。Gemini 接手時也會收到同一份指令。</p>
+      </div>
     </div>
     <div class="editor-actions">
       <button class="action-button" id="save-settings-button" type="button">儲存</button>
@@ -381,6 +457,17 @@
   <script type="application/json" id="brand-spec-data">"# 松風民宿品牌規格\n\n## 基本資料\n\n| 欄位 | 內容 |\n|---|---|\n| 品牌名稱 | 松風民宿 |\n| 帳號名稱 | FB：已提供粉絲專頁連結，頁面顯示名稱 ❓待補；IG：❓待補；訂房 LINE ID：`nona7688`（顯示名稱及是否為官方帳號 ❓待補） |\n| Facebook | [松風 Facebook（使用者提供）](https://www.facebook.com/p/%E6%9D%BE%E9%A2%A8-61572934135345/) |\n| 主色色碼 | `#90674c` |\n| 我要用的平台 | FB、IG、LINE |\n| 提供內容 | 住宿服務 |\n| 營業日 | 週一至週日 |\n| 地址 | 955臺東縣鹿野鄉龍田村龍馬路95巷17號 |\n| 營業時間 | ❓待補（入住／退房時間不等於全天營業或接待時段） |\n| 入住時間 | 15:00－18:00 |\n| 退房時間 | 11:00 前須退房 |\n| 聯絡方式／訂房管道 | 電話：0987-425-930；訂房 LINE ID：`nona7688`；亦可透過 [Booking](https://www.booking.com/Share-fu4Jfus)、[Agoda](https://www.agoda.com/zh-tw/songfeng-b-b/hotel/taitung-tw.html?cid=1844104&ds=Iw6i47uv3MvZBXkJ) 訂房 |\n| 房價 | 雙人房：每房每晚 NT$2,000；4 人房單床位：每床每晚 NT$700；4 人房整間：每房每晚 NT$2,800 |\n| 幣別與計價 | 新臺幣（NT$），按晚計價；平日、假日與旺季同價 |\n| 得獎紀錄 | ❓待補 |\n\n> 內容來源：松風品牌卡.md，以及使用者於 2026-10-15 補充的 Facebook 連結、地址、電話、訂房 LINE ID、Booking／Agoda 訂房管道及房源連結、房價與入住／退房時間。Facebook、Booking 與 Agoda 頁面本次未能讀取，連結依使用者提供記錄，未據此補寫頁面內容；Booking 與 Agoda 均使用使用者最新提供的連結。小島咖啡範例只供章節、規則與骨架的格式參考。\n> 「品牌卡明載」是原有資料；「建議規則」是為了讓寫作可執行而新增的編輯設定，不代表品牌卡原本有規定。缺少的品牌事實一律標「❓待補」。\n> 新增口氣來源：使用者於 2026-10-15 提供的 3 篇品牌 Facebook 貼文（發文日期未提供）。用於辨識實際口氣，舊文中的營運進度與商品不直接視為現況。\n\n## 1. 品牌口氣（寫具體）\n\n品牌重視自然與地方生活；實際 FB 貼文則由「小幫手」出面聊天，有自嘲、括號插話、家人對話與感謝，不只寫安靜抒情的風景。FB 故事採小幫手口吻；住宿公告仍優先講清楚資訊。\n\n**品牌卡明載的方向：**\n\n- 對象是去台東熱氣球季的遊客、想去台東放鬆的情侶，以及喜愛文青氛圍、大自然與慢活的旅客。\n- 強調民宿特色與在地生活，不以飯店或旅店的一應俱全作為訴求。\n- 不只介紹住宿，也傳達了解在地生活的想法。\n\n**建議規則（新增的編輯設定）：**\n\n- 稱呼讀者以「你」「大家」為主；新稿統一不用「您」「親愛的」「各位貴賓」。原 FB 貼文曾用「您」，因此這是統一編輯的建議，不是原品牌從未使用。\n- FB 故事自稱「小幫手」，談共同心意時可用「我們」；提到經營者用「老闆」，不虛構姓名。IG 若承接小幫手故事可沿用自稱；LINE 公告用「松風」或「我們」。\n- 一句只講一件事；以句號、問號或驚嘆號作為句尾。FB 每句最多 60 字，IG、LINE 每句最多 40 字；超過就拆句。舊文原文引用不受此限。\n- 每段 1～3 句；以空行分段。平台另有限制時，以該平台為準。\n- 每篇只選 1 個主題，例如名字的故事、地方生活或住宿公告。\n- emoji 上限：FB 每篇 5 個，IG 每篇 2 個，LINE 每篇 1 個；都可以不用，不連續排列。這些上限是參考實際貼文後的建議值。\n- 驚嘆號：FB 全篇最多 2 個，可在同一句使用「！！」；IG、LINE 全篇最多 1 個。\n- FB 括號插話最多 4 處，每處最多 15 字；可用「（撥髮）」「（？）」等自嘲，不拿旅客開玩笑。注音諧音或「484」等數字諧音一篇合計最多 1 處，限日常故事，訂房公告不用。\n- 有來源時可以放 1 組家人或老闆對話；沒有逐字資料就改為間接敘述，不編造引號內對白。故事中可以自嘲，再回到對家人、協助者或土地的感謝；不強迫每篇加笑點。\n- 多用品牌卡已有的具體畫面，例如木質空間、龍田的草地與茶田；不自行補寫窗外景色、天氣或現場見聞。\n- 描述適合的旅行方式，例如放慢步調、了解在地；不把對特定旅客的拒絕當成貼文開場。\n- 邀請句每篇最多 1 句，不催促、不倒數；需要訂房資訊時，只放已確認的管道。\n\n**計數方式：**以下字數均計標點、不計空白與換行；網址不計入字數。平台行數以手動換行後的非空白行計，手機自動折行不另計；emoji 的上限包含骨架中的符號。\n\n## 2. 不能用的字\n\n**品牌卡明載，所有新寫貼文都禁用：**\n\n- 狂歡\n- 慶祝\n- 熱鬧\n\n**建議新增的禁用說法：**\n\n- 催促：「快搶」「手刀訂房」「錯過可惜」「最後倒數」。\n- 誇大：「全台第一」「必住」「保證療癒」「百分之百放鬆」。\n- 一應俱全的承諾：「什麼都有」「所有需求都能滿足」「飯店級全套服務」。\n\n不能用的原因是與品牌方向不合或缺少依據，不能換個近義詞繼續作同樣的承諾。\n\n## 3. 不准自己加的東西\n\n- 地址、電話、Facebook 連結與訂房 LINE ID：使用基本資料中的已提供內容。Booking／Agoda 房源連結使用基本資料中的網址。IG 帳號、各平台顯示名稱與其他訂房網址：❓待補；不自行拼出網址。\n- 房價使用已確認的「雙人房每房每晚 NT$2,000」「4 人房單床位每床每晚 NT$700」「4 人房整間每房每晚 NT$2,800」，平日、假日與旺季同價。四人房整間價格由使用者明確提供；不把單床位價格寫成整間房價，也不自行改寫成「起」價。折扣、訂金與取消規則：❓待補。\n- 入住時間為 15:00－18:00，11:00 前須退房。營業具體時段、提前入住與延後退房規則：❓待補；不能把入住時段當成全部接待時段，也不能把「週一至週日」寫成「24 小時服務」。\n- 已知房價項目有雙人房與 4 人房單床位；完整房型、房數、入住人數規則、設施、早餐、交通與接送：❓待補。\n- 得獎、評分、旅客評價、入住人次、經營年數或其他成果數字：❓待補。\n- 熱氣球活動日期、票價、距離、步行或車程：❓待補。品牌卡提到目標旅客，不代表提供活動方案或能從民宿看見熱氣球。\n- 書店、茶飲、咖啡、課程、導覽及店家合作的實際服務內容：❓待補。\n- 舊 FB 文曾提到民宿牌申請、農產品與手作品販售。可作歷史原文參考；目前登記名稱與編號、是否持續販售、品項、庫存及價格：❓待補。不能據此新增現行認證或「現貨供應」承諾。\n- 舊文的「期盼在6月前能夠正式營業」是當時的計畫，日期年份未提供，不作為目前進度或正式開幕日。小幫手上過森林療癒課程的敘述，也不代表民宿提供相關課程；不把舊文中的個人感受改成健康效果保證。\n\n品牌卡的「我們希望這裡成為一處能閱讀、喝茶或咖啡、與人聊聊地方生活的空間」是願景。改寫時保留「希望」或「想讓」的語氣，不寫成「入住附咖啡」「提供茶席」「可預約課程」等現行服務。\n\n品牌卡原文已有的「五月完工」「只住一兩晚」可以保留原意，但不能推算完工年份，也不能把「一兩晚」改寫成最低入住晚數。\n\n「❓待補」用於草稿與規格。正式發布前，必要資訊要補齊；非必要資訊可以整句刪除，不能自行填值。\n\n## 4. 參考貼文（照這篇的感覺寫）\n\n### 4.1 原有品牌卡參考文\n\n以下完整保留品牌卡的範例原文，不是新增服務公告，也不受本規格建議的字數與段落上限限制。新稿學它的敘事感，依各平台骨架調整長度。\n\n```text\n「五月賣松風，人間恐無價。」\n一句在朋友談話中被想起的詩，為松風取了名字；民宿又恰好在五月完工，讓這段緣分有了落腳的地方。\n松風位於鹿野龍田村。我們希望，來到這裡的旅人，能留一點時間認識住宿之外的生活：看看草地與茶田，走進沿途的小店，聽聽在這裡生活的人如何過日子。\n白天，從松風出發，沿著自己的興趣探索地方；夜裡，回到沒有電視與 KTV 的安靜空間，聊聊今天的見聞，或讓自己好好休息。那些途中遇見的人與事，都可以慢慢成為旅行的一部分。\n松風也正朝結合閱讀、品茶與在地選物的空間前進，期待未來與地方有更多連結。讓旅人因住宿來到龍田，也因認識這裡的日常，多一個想再回來的理由。\n\n```\n\n照這篇的感覺寫：先給一個具體起點，再說它與松風的關係，最後用一句邀請收尾。不要只堆「療癒、質感、慢活」等形容詞，也不要每篇都複製同一段故事。\n\n### 4.2 品牌實際 FB 貼文：照這些篇的感覺寫\n\n以下是使用者提供的 3 篇原文。僅拆開篇章、保留段落，將 Facebook emoji 與 hashtag 連結轉成純文字；保留原有用字、錯別字、玩笑與標點，不是新寫的貼文。歷史原文不適用新稿字數限制，也不直接作為當前營運公告。\n\n**範例一：小幫手出場、籌備感謝與小小工商。**學它「先開玩笑，再說不容易，最後感謝」的轉折；商品內容發布前須另確認。\n\n```text\n小幫手又來了（出場率484有點高？）\n被老闆拜（ㄒㄧㄝˊ）託（ㄆㄛˋ）幫他寫一篇文，好吧！誰叫小幫手很容易文思泉湧（撥髮）\n看到老闆從空空的屋子開始，真的很不容易，很多事情親力親為，不像小幫手的才能只會點點手指頭+嘴巴講講話，但我也申請了合法民宿牌出來（甩髮）\n有時要成就一件事情，的確是不簡單，各方面大家的幫忙，不管是老天、父母、身邊的親友團、師傅們、當然怎麼可以忘記小幫手🙋‍♀️…等等，雖然這看起來是一條未知又奇幻、帶點夢想的旅程，但要走過才會知道吧～就像熱氣球起飛，你也不知道它會在哪降落。（若我們預算不夠搭乘熱氣球，但一樣能來台東看看美麗又溫柔的山水喔！）\n總之老闆要表達對大家的感恩🙏也感謝這塊包涵與孕育我們的土地❤️\n最後偷偷小小工商🥹若來台東，小幫手家的農產品，也能在民宿購買到，有少量好吃的自然農法巧克力、桑椹果醬、桑椹發酵液、精油、亞麻手作衣服、手作品…都可以找老闆購買喔🙏\n#鹿野民宿\n#熱氣球\n#歡迎訂房\n```\n\n**範例二：從自己的生活經驗談自然。**學它「先說自己如何改變，再邀請大家感受」的方式；不沿用裝修進度或健康效果說法。\n\n```text\n小幫手來祝大家新年快樂！！\n記得好多年前小幫手來台東的時候，當時的懵懂少女（？）並不知道台東的好與價值，也許有些人覺得奇怪，為什麼要選擇到鄉下生活？經過多年以後，小幫手手握著泥土、親近花草樹木，才懂得人與自然中間的價值是什麼。\n除了這裡沒有都市的擁擠、沒有一開門就見到高高低低的建築物、沒有亮眼的霓虹燈光、冬天沒有霧濛濛的天空…\n這裡有的是新鮮空氣、緩慢的步調、錢的味道不重（？）…小幫手開始發現在自然環境，是我最舒服放鬆的狀態😌進而開始想了解很多關於自然的事情，也因為能感受到自然對我的幫忙，進而去上森林療癒的課程。\n我們就算沒有辦法生活在鄉下，也可以有空隨時到森林中走走，讓副交感神經活絡，可以釋放壓力情緒…好處多多。但這個篇幅還是不要寫太多拉里拉雜的，搞得像自己的粉專一樣😗\n報告一下民宿現在進度還在裝修採購中，我們期盼在6月前能夠正式營業，屆時歡迎大家來感受台東這片黏人的土地❤️\n祝福大家在新的一年平安自在、平心靜氣，保有澄澈寧靜的自己。\n#好事馬上旺，不開心的事馬上忘\n#歡迎來鹿野跳馬\n#民宿現在亂亂的沒什麼好拍，小幫手只好犧牲自己選了最適合（？）馬年的影片。\n```\n\n**範例三：取名與羅漢松的故事。**學它「真實小事＋家人對話＋最後一個笑點」的節奏；詩作作者歸屬是原文說法，未另查證，對外引用作者前須核實。\n\n```text\n《小幫手說故事》\n當初要申請合法的民宿牌，首先第一步要先想個響亮亮又好記的名字。勞闆想了好多個，都被小幫手說不好🤣\n小幫手本身是文青美少女（？？？\n取名字喜歡有氣質、內涵+意義，光是想個名字，小幫手的親友都來幫忙想這樣😆 有天小幫手那位常常文思泉湧的阿母說：欸欸～取松風如何？\n是一首我從小就常常聽長輩唸的詩：\n本是山中人，愛說山中話。\n五月賣松風，人間恐無價。\n而谷歌也查不太到關於這首詩的資訊，只知道是一位釋思岳禪師寫的。\n取名松風\n來往松風體驗台東，感受這首詩與您內心或者跟大自然的連結🌈\n故事之後的故事\n勞闆買了一棵羅漢松種在門口，小棵到我阿母走進去再走出來，問一句：「沒看到羅漢松啊？」「在那邊啊～（手指）」\n「那麼小！跟桂花一樣高，難怪我沒看到」\n#我們來看看哪時候可以長得跟我一樣高😏\n#鹿野民宿\n```\n\n**兩份資料的取名敘述不同：**原有參考文寫「朋友談話」，這次 FB 原文寫「阿母提議」。後續新稿暫用共同資訊「因一句詩而取名」，具體由誰提議標「❓待補」，不把兩個版本拼成新故事。原有參考文保留供對照。\n\n## 5. 三個平台的規則＋填空骨架\n\n> 平台名單來自品牌卡；以下讀者分工、篇幅、第一行、段落配置與固定結尾均為建議規則。品牌卡沒有各平台受眾數據，不能當成實際追蹤者分析。\n> 骨架中的括號是填寫提示，完成貼文時刪除。emoji 上限依平台：FB 5 個、IG 2 個、LINE 1 個。FB 骨架依實際小幫手貼文調整；IG、LINE 沒有提供實際貼文，仍是建議設定。\n\n### Facebook\n\n- **誰在看：**想進一步了解松風故事與鹿野生活、正在考慮台東住宿的旅客（建議的內容對象，不預設年齡或熟客身分）。\n- **多長：**全文 300～650 字；正文 5～8 段，每段 1～3 句，另加 hashtag；最多 3 個 hashtag。這是編輯建議，不是對舊文長度的描述。\n- **第一行寫什麼：**最多 30 字，用「小幫手」出場句或「《小幫手說故事》」帶出本篇主題，可以加 1 個括號小吐槽；不必每篇都用同一句。\n- **中間寫什麼：**先講 1 件有來源的真實小事，帶入家人或老闆互動，再說感受、感謝或與土地的連結。可選 1 小段訂房資訊，不強迫每篇工商；不能虛構新對話或自身經歷。\n- **最後一行固定寫：**「#鹿野民宿」。實際貼文用過這個 hashtag，但固定放最後一行是新增的建議規則；其他 hashtag 與聯絡方式放在它前面。\n\n**骨架（照這個格子填）：**\n\n```text\n（第 1 段：小幫手出場或《小幫手說故事》，首行最多 30 字）\n\n（第 2 段：一件有資料來源的小事，1～3 句）\n\n（第 3 段：家人或老闆的互動，可加一處自嘲；不編對白）\n\n（第 4 段：小幫手的感受，連到自然、土地或地方生活）\n\n（第 5 段：感謝或一句邀請，不催促）\n\n（可選加 1～3 段延伸同一故事；需要訂房時，其中 1 段寫「訂房洽 LINE ID：nona7688」）\n（可選其他 hashtag，最多 2 個）\n#鹿野民宿\n```\n\n### Instagram\n\n- **誰在看：**被自然與木質空間影像吸引、想感受台東慢步調的旅客（建議的內容對象，不預設年齡）。\n- **多長：**全文 60～140 字、4～6 個非空白行；每行最多 30 字；hashtag 0～3 個，計入總字數與行數。\n- **第一行寫什麼：**用最多 20 字，點出照片中的 1 個可確認畫面或與它相關的 1 個想法。沒有照片時，不宣稱「今天拍到」。\n- **中間寫什麼：**用 2～3 行寫畫面細節與地方生活的連結，一行一件事；不塞進完整品牌歷史。\n- **最後一行固定寫：**「住進鹿野的生活裡。」這是前版採用的建議結尾，不是這次實際 FB 貼文的固定用語。\n- **帳號與 hashtag：**實際 IG 帳號為「❓待補」，不造一個 @ 帳號。需要 hashtag 時，可從品牌卡詞彙選用 `#松風民宿`、`#鹿野`、`#慢活`，放在固定結尾前。\n\n**骨架：**\n\n```text\n（第 1 行：照片畫面或相關想法，最多 20 字）\n（第 2 行：1 個有依據的細節）\n（第 3 行：與鹿野生活或慢步調的連結）\n（可選第 4 行：延伸同一主題；可選 hashtag 另占 1 行）\n住進鹿野的生活裡。\n```\n\n### LINE\n\n- **誰在看：**已加入帳號、想快速取得住宿資訊或公告的旅客（建議的內容對象；不自行稱為會員）。\n- **多長：**全文 50～120 字、4～6 個非空白行；每行最多 30 字；hashtag 0 個。\n- **第一行寫什麼：**「【松風住宿】＋一句重點」或「【松風公告】＋一句重點」，全行最多 25 字。沒有優惠資料，就不寫會員限定或折扣。\n- **中間寫什麼：**列 1～3 個重點，每點 1 行；另用 1 行寫清楚接下來怎麼做。使用「・」列點，不用多個 emoji 當項目符號。\n- **最後一行固定寫：**「松風民宿」（建議固定署名）。\n- **行動管道：**可寫「訂房洽 LINE ID：nona7688」或「訂房洽 0987-425-930」。Booking／Agoda 可使用基本資料中的房源連結；回覆、付款、確認訂房流程為「❓待補」；不能先承諾「回覆就能訂房」或「點選選單」，也不將訂房 LINE ID 視為已確認的官方帳號。\n\n**骨架：**\n\n```text\n【松風公告】（一句重點，整行最多 25 字）\n・（重點 1：已確認的資訊）\n・（可選重點 2）\n・（可選重點 3）\n訂房洽 LINE ID：nona7688\n松風民宿\n```\n\n## 6. 平台限定與發布前檢查\n\n**建議規則：**\n\n- 已確認訂房管道為電話、LINE ID、Booking 與 Agoda。平台專屬優惠、會員制度及 LINE 自動訂房功能仍為「❓待補」；不沿用小島咖啡的會員預購與優惠。\n- FB 用故事展開，IG 用畫面與短句，LINE 用重點與明確下一步；同一主題也依骨架改寫。\n- 檢查品牌名稱、主色色碼與平台是否和品牌卡一致。\n- 檢查新稿禁用詞是否為 0 個；emoji 是否符合 FB 最多 5 個、IG 最多 2 個、LINE 最多 1 個；句長、篇幅、插話與固定結尾是否符合平台規則。\n- 檢查小幫手的趣味是否來自語氣，而不是編造經歷；歷史貼文中的商品、裝修、日期、證照與健康效果說法不得直接轉為現行承諾。\n- 檢查每個地址、價格、時間、數字與服務承諾是否有資料來源；缺資料就標「❓待補」。\n- 檢查「希望成為」有沒有被誤寫成「現在提供」。\n- 檢查骨架提示及「❓待補」是否已在發布前補齊或刪除；沒有確認的必要資訊就不發布該公告。\n\n## 7. 哪些地方是我猜的？\n\n以下是我依品牌卡與實際 FB 範例提出的寫作設定，並非使用者已確認的硬性規定：\n\n1. **口氣的量化方式：**新稿統一用「你／大家」、FB 每句最多 60 字、IG／LINE 每句最多 40 字、每段最多 3 句、每篇 1 個主題、FB／IG／LINE emoji 上限為 5／2／1 個、FB 驚嘆號最多 2 個而其他平台最多 1 個、FB 括號插話最多 4 處及諧音最多 1 處、邀請句最多 1 句。小幫手自稱、自嘲與家人對話有實際貼文依據；具體數字上限是我訂的建議。\n2. **新增禁用說法：**催促、誇大與一應俱全的承諾；只有「狂歡、慶祝、熱鬧」是品牌卡明列的禁用字。\n3. **平台讀者分工：**FB 看故事、IG 看畫面、LINE 看資訊，是內容安排建議，沒有帳號受眾數據佐證。\n4. **平台數字與排版：**各平台的字數、行數、段落數、hashtag 數量及擺放位置，全部是建議值。\n5. **固定結尾與標題：**FB 固定以「#鹿野民宿」結尾是新增建議，雖然原文用過該標籤；IG 的「住進鹿野的生活裡。」沿用前版設定，LINE 的固定署名與公告標題也是建議。沒有證據顯示品牌目前每篇都這樣結尾。\n\n**不是猜的口氣特徵：**「小幫手」出場、自嘲、括號插話、諧音、家人對話，以及從玩笑轉向感謝與自然感受，都能在這次提供的 FB 原文找到。這些是對文本的觀察，不是成效或受眾數據。\n\n品牌名稱、平台、主色、營業日、品牌卡描述的受眾、三個禁用字及參考貼文均來自品牌卡。Facebook 連結、完整地址、電話、訂房 LINE ID、Booking／Agoda 管道與房源連結、三項房價、新臺幣按晚計價、平日假日旺季同價，以及入住時間 15:00－18:00、11:00 前須退房，均來自使用者補充，沒有猜填。未確認的帳號顯示名稱、IG 帳號、折扣、訂金、取消規則、營業具體時段、提前入住與延後退房規則、得獎及其他營運資料均標「❓待補」。\n"</script>
   <script>
     // ── 品牌、平台與欄位設定：日後從這裡修改 ──
+    const AI_MODEL = 'deepseek/deepseek-v4.1-flash';
+    const AI_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
+    const GEMINI_MODEL = 'gemini-3.8-flash';
+    const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
+    const AI_TIMEOUT_MS = 120000;
+    const OPENROUTER_MODELS = [
+      { group: 'DeepSeek', models: [AI_MODEL, 'deepseek/deepseek-v4-pro', 'deepseek/deepseek-v3.2'] },
+      { group: 'Kimi', models: ['moonshotai/kimi-k2.6', 'moonshotai/kimi-k2.5', 'moonshotai/kimi-k3'] },
+      { group: 'MiniMax', models: ['minimax/minimax-m3', 'minimax/minimax-m2.7', 'minimax/minimax-m2.5'] }
+    ];
+    const GEMINI_MODELS = [GEMINI_MODEL, 'gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'];
     const BRAND = {
       name: '松風民宿',
       accounts: { fb: '❓待補', ig: '❓待補', line: '❓待補' },
@@ -412,7 +499,15 @@
     const SETTINGS_KEY = 'songfeng-social-settings-v1';
     const POSTS_KEY = 'songfeng-social-posts-v1';
     const AUTOSAVE_KEY = 'songfeng-social-autosave-v2';
-    let settings = { brandSpec: BRAND_SPEC, checklist: '' };
+    const AI_USAGE_KEY = 'songfeng-social-ai-usage-v1';
+    const AI_DEFAULTS = { aiKey: '', openrouterModel: AI_MODEL, customModel: '', reasoning: 'low', geminiKey: '', geminiModel: GEMINI_MODEL, providerMode: 'fallback' };
+    let settings = { brandSpec: BRAND_SPEC, checklist: '', ...AI_DEFAULTS };
+    let aiWriting = false;
+    let helperHistory = Object.fromEntries(PLATFORMS.map(platform => [platform.id, []]));
+    let previousDrafts = null;
+    let lastAIUsage = null;
+    let usageMemory = null;
+    let usageStorageFailed = false;
     // 正式存檔與自動暫存分開，沿用既有設定並保留舊版單篇存檔。
     let currentPostId = makePostId();
     let currentPostStatus = 'draft';
@@ -700,6 +795,8 @@
         button.setAttribute('aria-pressed', String(selected));
       });
       renderPreview();
+      renderHelperHistory();
+      updateUndoButton();
       if (!initializing) autoSaveWorkspace();
     }
 
@@ -753,28 +850,35 @@
     }
 
     function distributeAIReply() {
-      const status = document.getElementById('import-ai-status');
-      const result = parseAIReply(document.getElementById('ai-reply-input').value);
+      return distributeAIReplyText(document.getElementById('ai-reply-input').value, document.getElementById('import-ai-status'), true);
+    }
+
+    function distributeAIReplyText(text, status, closeImportDialog = false, preservePrevious = false) {
+      const result = parseAIReply(text);
       if (result.duplicates.length) {
         status.textContent = `標題重複：${result.duplicates.join('、')}。請每個平台只保留一段，再重新分配；目前貼文未變更。`;
-        return;
+        return false;
       }
       const incoming = PLATFORMS.filter(platform => result.sections.get(platform.id)?.trim());
       const questions = result.sections.get('questions') || '';
       if (!incoming.length && !questions.trim()) {
         status.textContent = '沒有找到可分配的內容。請用【FB】【IG】【LINE】各自獨立一行，下面放貼文；目前貼文未變更。';
-        return;
+        return false;
       }
       drafts[activePlatform] = editor.value;
+      if (preservePrevious && incoming.length) rememberPreviousDrafts();
       incoming.forEach(platform => { drafts[platform.id] = result.sections.get(platform.id); });
       aiQuestions = questions;
       editor.value = drafts[activePlatform];
       renderPreview();
       renderAIQuestions();
       const saved = autoSaveWorkspace();
-      document.getElementById('import-ai-dialog').close();
-      setStatus((incoming.length ? `已分到 ${incoming.map(platform => platform.label).join('、')}；未提供的平台保留原文。` : '已更新「要問我的」。')
-        + (saved ? '已自動暫存。' : '自動暫存未成功，請查看左側提示。'));
+      if (closeImportDialog) document.getElementById('import-ai-dialog').close();
+      const message = (incoming.length ? `已分到 ${incoming.map(platform => platform.label).join('、')}；未提供的平台保留原文。` : '已更新「要問我的」。')
+        + (saved ? '已自動暫存。' : '自動暫存未成功，請查看左側提示。');
+      status.textContent = message;
+      setStatus(message);
+      return true;
     }
 
     function formatPublishDate(value) {
@@ -791,9 +895,8 @@
       return `${match[1]}/${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}（${weekdays[date.getUTCDay()]}）`;
     }
 
-    function composePrompt() {
-      const labels = PLATFORMS.map(platform => platform.label).join('、');
-      const materials = MATERIAL_FIELDS.map(field => {
+    function materialCardText() {
+      return MATERIAL_FIELDS.map(field => {
         const input = document.getElementById(`material-${field.id}`);
         let value = field.type === 'file'
           ? (mediaFiles.length ? mediaFiles.map(file => file.name) : Array.from(input.files || []).map(file => file.name)).join('、')
@@ -801,12 +904,19 @@
         if (field.id === 'date' && value) value = formatPublishDate(value);
         return `${field.label}：${value || (field.required ? '未填（不要自行補寫，必要資訊請在文末詢問）' : '未指定（選填，不自行補寫）')}`;
       }).join('\n');
+    }
+
+    function composePrompt() {
+      const labels = PLATFORMS.map(platform => platform.label).join('、');
+      const materials = materialCardText();
       const parts = [
         '（這段只要回覆文字，不要建立或修改任何檔案。）',
         `你是【${BRAND.name}】的小編。請照品牌規格，用素材卡的內容，寫【${labels}】的貼文，每個平台一篇。`,
-        '規則：素材卡上沒有的事不要寫；只能在某個平台說的，只寫在那個平台；先不要講的，每一篇都不能寫；還不確定的不要寫，寫完列出來問我。',
+        '【規則】',
+        '一律用台灣的繁體中文和台灣用語。不要出現簡體字，也不要用大陸用語（例如：視頻→影片、質量→品質、優化→改善、信息→訊息、網絡→網路、用戶→客人或使用者）。',
+        '素材卡上沒有的事不要寫；只能在某個平台說的，只寫在那個平台；先不要講的，每一篇都不能寫；還不確定的不要寫，寫完列出來問我。',
         '這些規則優先於品牌規格裡的歷史範例與缺資料處理方式。選填未指定時不強行加入提問或行動呼籲；不自行編造故事、對白或營運資訊。',
-        `回覆格式：每個平台用 ${PLATFORMS.map(platform => `【${platform.label}】`).join('、')} 這樣的標題分開。還不確定的事集中在所有貼文後，列出來問我。`,
+        `回覆格式：每個平台用 ${PLATFORMS.map(platform => `【${platform.label}】`).join('、')} 這樣的標題分開，標題各自獨立一行。還不確定的事集中在所有貼文後，以【要問我的】標題列出來問我。`,
         '【品牌規格】', settings.brandSpec,
         '【這次素材卡】', materials,
         '附件只有檔名，沒有圖片或影片內容；不要假裝看過附件。'
@@ -815,29 +925,486 @@
       return parts.join('\n\n');
     }
 
+    function normalizeAISettings(saved) {
+      return {
+        brandSpec: typeof saved.brandSpec === 'string' ? saved.brandSpec : BRAND_SPEC,
+        checklist: typeof saved.checklist === 'string' ? saved.checklist : '',
+        aiKey: typeof saved.aiKey === 'string' ? saved.aiKey.trim() : '',
+        openrouterModel: OPENROUTER_MODELS.some(group => group.models.includes(saved.openrouterModel)) ? saved.openrouterModel : AI_MODEL,
+        customModel: typeof saved.customModel === 'string' ? saved.customModel.trim() : '',
+        reasoning: ['low', 'medium', 'high'].includes(saved.reasoning) ? saved.reasoning : 'low',
+        geminiKey: typeof saved.geminiKey === 'string' ? saved.geminiKey.trim() : '',
+        geminiModel: GEMINI_MODELS.includes(saved.geminiModel) ? saved.geminiModel : GEMINI_MODEL,
+        providerMode: ['fallback', 'gemini', 'openrouter'].includes(saved.providerMode) ? saved.providerMode : 'fallback'
+      };
+    }
+
+    function initializeAISettings() {
+      const select = document.getElementById('settings-ai-model');
+      OPENROUTER_MODELS.forEach(group => {
+        const options = element('optgroup');
+        options.label = group.group;
+        group.models.forEach(model => {
+          const option = element('option', '', model);
+          option.value = model;
+          options.append(option);
+        });
+        select.append(options);
+      });
+      GEMINI_MODELS.forEach(model => {
+        const option = element('option', '', model);
+        option.value = model;
+        document.getElementById('settings-gemini-model').append(option);
+      });
+    }
+
     function restoreSettings() {
       try {
         const raw = localStorage.getItem(SETTINGS_KEY);
         if (!raw) return;
         const saved = JSON.parse(raw);
-        if (!saved || typeof saved.brandSpec !== 'string' || typeof saved.checklist !== 'string') throw new Error('設定格式錯誤');
-        settings = { brandSpec: saved.brandSpec, checklist: saved.checklist };
+        if (!saved || typeof saved !== 'object') throw new Error('設定格式錯誤');
+        settings = normalizeAISettings(saved);
       } catch {
-        document.getElementById('settings-status').textContent = '無法讀取上次設定，目前使用內建品牌規格。可重新填寫並儲存。';
+        document.getElementById('settings-status').textContent = '無法讀取上次設定，目前使用內建設定。可重新填寫並儲存。';
       }
     }
 
     function saveSettings() {
-      const next = {
+      const next = normalizeAISettings({
         brandSpec: document.getElementById('settings-brand').value,
-        checklist: document.getElementById('settings-checklist').value
-      };
+        checklist: document.getElementById('settings-checklist').value,
+        aiKey: document.getElementById('settings-ai-key').value,
+        openrouterModel: document.getElementById('settings-ai-model').value,
+        customModel: document.getElementById('settings-ai-custom-model').value,
+        reasoning: document.getElementById('settings-ai-reasoning').value,
+        geminiKey: document.getElementById('settings-gemini-key').value,
+        geminiModel: document.getElementById('settings-gemini-model').value,
+        providerMode: document.getElementById('settings-ai-priority').value
+      });
       try {
         localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
         settings = next;
-        document.getElementById('settings-status').textContent = '已儲存，重新開啟網頁仍會保留。下一次組好指令將使用這份設定。';
+        document.getElementById('settings-status').textContent = '已儲存，重新開啟網頁仍會保留。下一次寫作會使用這份設定。';
       } catch {
-        document.getElementById('settings-status').textContent = '儲存失敗，瀏覽器儲存空間無法使用。請先複製文字保留內容，再重試。';
+        document.getElementById('settings-status').textContent = '儲存失敗，瀏覽器儲存空間無法使用。請先複製品牌文字保留內容，再重試。';
+      }
+    }
+
+    function openSettings() {
+      const fields = {
+        'settings-brand': 'brandSpec', 'settings-checklist': 'checklist', 'settings-ai-key': 'aiKey',
+        'settings-ai-model': 'openrouterModel', 'settings-ai-custom-model': 'customModel',
+        'settings-ai-reasoning': 'reasoning', 'settings-gemini-key': 'geminiKey',
+        'settings-gemini-model': 'geminiModel', 'settings-ai-priority': 'providerMode'
+      };
+      Object.entries(fields).forEach(([id, key]) => { document.getElementById(id).value = settings[key]; });
+      document.getElementById('settings-dialog').showModal();
+    }
+
+    function aiEditingSignature() {
+      return JSON.stringify([currentPostId, composePrompt(), { ...drafts, [activePlatform]: editor.value }]);
+    }
+
+    function numericUsage(value) {
+      if (value === null || value === undefined || value === '') return null;
+      const number = Number(value);
+      return Number.isFinite(number) && number >= 0 ? number : null;
+    }
+
+    function emptyDailyUsage() {
+      return { date: taiwanDate(new Date().toISOString()), openrouter: { count: 0, cost: 0, unpriced: 0 }, gemini: { count: 0 }, last: null };
+    }
+
+    function persistAIUsage(data) {
+      usageMemory = data;
+      try { localStorage.setItem(AI_USAGE_KEY, JSON.stringify(data)); usageStorageFailed = false; }
+      catch { usageStorageFailed = true; }
+    }
+
+    function dailyAIUsage() {
+      const today = taiwanDate(new Date().toISOString());
+      let data = usageMemory;
+      if (!usageStorageFailed) {
+        try { const raw = localStorage.getItem(AI_USAGE_KEY); if (raw) data = JSON.parse(raw); }
+        catch { /* 無法讀取時仍可使用目前頁面的累積。 */ }
+      }
+      if (!data || data.date !== today || !data.openrouter || !data.gemini) {
+        data = emptyDailyUsage();
+        lastAIUsage = null;
+        persistAIUsage(data);
+      }
+      data.openrouter.count = numericUsage(data.openrouter.count) ?? 0;
+      data.openrouter.cost = numericUsage(data.openrouter.cost) ?? 0;
+      data.openrouter.unpriced = numericUsage(data.openrouter.unpriced) ?? 0;
+      data.gemini.count = numericUsage(data.gemini.count) ?? 0;
+      usageMemory = data;
+      return data;
+    }
+
+    function recordAIUsage(provider, data) {
+      const daily = dailyAIUsage();
+      const usage = data?.usage || {};
+      const promptTokens = numericUsage(usage.prompt_tokens ?? usage.promptTokens);
+      const completionTokens = numericUsage(usage.completion_tokens ?? usage.completionTokens);
+      const tokens = numericUsage(usage.total_tokens ?? usage.totalTokens ?? data?.usageMetadata?.totalTokenCount)
+        ?? (promptTokens !== null && completionTokens !== null ? promptTokens + completionTokens : null);
+      const cost = numericUsage(usage.cost);
+      daily[provider].count++;
+      if (provider === 'openrouter') {
+        if (cost === null) daily.openrouter.unpriced++;
+        else daily.openrouter.cost += cost;
+      }
+      lastAIUsage = { provider, tokens, cost };
+      daily.last = lastAIUsage;
+      persistAIUsage(daily);
+      renderAIUsage();
+    }
+
+    function aiMoney(value) {
+      return '$' + value.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
+    }
+
+    function renderAIUsage() {
+      const daily = dailyAIUsage();
+      const last = daily.last || lastAIUsage;
+      let current = '';
+      if (last) {
+        const name = last.provider === 'gemini' ? 'Gemini' : 'OpenRouter';
+        current = '這次用 ' + name + '：' + (last.tokens === null ? '未提供' : last.tokens) + ' tokens '
+          + (last.cost === null ? '費用未提供' : '約 ' + aiMoney(last.cost)) + '｜';
+      }
+      let totalCost = aiMoney(daily.openrouter.cost);
+      if (daily.openrouter.unpriced) totalCost = daily.openrouter.unpriced === daily.openrouter.count ? '費用未提供' : totalCost + '（部分費用未提供）';
+      document.getElementById('ai-usage-summary').textContent = current + '今天 OpenRouter ' + daily.openrouter.count + ' 次 ' + totalCost + '、Gemini ' + daily.gemini.count + ' 次'
+        + (usageStorageFailed ? '（用量暫存失敗）' : '');
+    }
+
+    function aiFailure(provider, reason, rawText = '') {
+      const error = new Error(reason);
+      error.aiReason = reason;
+      error.provider = provider;
+      error.rawText = rawText;
+      return error;
+    }
+
+    function providerErrorReason(provider, status, message = '') {
+      if (provider === 'gemini') {
+        if (status === 400 && /api[ _-]*key/i.test(message)) return '金鑰不對';
+        return ({ 400: '請求內容不被接受', 401: '金鑰不對', 403: '沒有權限', 404: '模型名稱不對，或免費版不能用', 429: '免費額度用完了' })[status] || '服務暫時出錯';
+      }
+      return ({ 400: '請求內容不被接受', 401: '金鑰不對', 402: '全班的額度用完了', 403: '沒有權限', 404: '模型名稱打錯了', 429: '太多人同時在用' })[status] || '服務暫時出錯';
+    }
+
+    function cleanAIText(text) {
+      return (typeof text === 'string' ? text : '')
+        .replace(/<think\b[^>]*>[\s\S]*?<\/think\s*>/gi, '')
+        .replace(/<think\b[^>]*>[\s\S]*$/gi, '')
+        .replace(/<\/think\s*>/gi, '').trim();
+    }
+
+    async function requestAIProvider(provider, prompt, config) {
+      const isGemini = provider === 'gemini';
+      const key = isGemini ? config.geminiKey : config.aiKey;
+      const body = {
+        model: isGemini ? config.geminiModel : config.customModel || config.openrouterModel,
+        messages: Array.isArray(prompt) ? prompt.map(message => ({ role: message.role, content: message.content })) : [{ role: 'user', content: prompt }]
+      };
+      if (!isGemini) {
+        body.max_tokens = 4000;
+        body.reasoning = { effort: config.reasoning, exclude: true };
+        body.usage = { include: true };
+      }
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+      let data = null;
+      try {
+        const response = await fetch(isGemini ? GEMINI_ENDPOINT : AI_ENDPOINT, {
+          method: 'POST', headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' },
+          body: JSON.stringify(body), signal: controller.signal, credentials: 'omit', redirect: 'error'
+        });
+        try {
+          const raw = await response.json();
+          data = Array.isArray(raw) ? raw[0] : raw;
+        } catch (error) {
+          if (error.name === 'AbortError') throw error;
+          throw aiFailure(provider, response.ok ? '回覆格式看不懂' : providerErrorReason(provider, response.status));
+        }
+        if (!response.ok || data?.error) {
+          const code = Number(data?.error?.code) || response.status;
+          throw aiFailure(provider, providerErrorReason(provider, code, String(data?.error?.message || '')));
+        }
+        const choice = data?.choices?.[0];
+        const text = cleanAIText(choice?.message?.content);
+        if (!text) throw aiFailure(provider, choice?.finish_reason === 'length'
+          ? '想太久，字數用完了（⚙ 設定把思考調成少想一點）' : '沒有回傳文字');
+        return { provider, text, warning: choice.finish_reason === 'length' ? '回覆可能被切掉了' : '' };
+      } catch (error) {
+        if (error.aiReason) throw error;
+        throw aiFailure(provider, error.name === 'AbortError' ? '等太久' : '連不到（檢查網路）');
+      } finally {
+        clearTimeout(timeout);
+        // 包含失敗請求的實際呼叫次數；費用只記服務回傳值，不猜價格。
+        recordAIUsage(provider, data);
+      }
+    }
+
+    // 後續所有 AI 功能都呼叫這裡；validate 可依功能檢查回覆格式。
+    async function askAI(prompt, options = {}) {
+      const config = { ...settings };
+      if (!config.aiKey && !config.geminiKey) throw new Error('還沒填金鑰。按 ⚙ 設定。');
+      const plan = config.providerMode === 'gemini' ? ['gemini'] : config.providerMode === 'openrouter' ? ['openrouter'] : ['openrouter', 'gemini'];
+      const failures = [];
+      for (const provider of plan) {
+        if (provider === 'gemini' && failures.length && !config.geminiKey) break;
+        if (provider === 'gemini' && failures.length) options.onFallback?.(failures[0].aiReason);
+        const name = provider === 'gemini' ? 'Gemini' : 'OpenRouter';
+        try {
+          const key = provider === 'gemini' ? config.geminiKey : config.aiKey;
+          if (!key) throw aiFailure(provider, '還沒填金鑰。按 ⚙ 設定。');
+          const result = await requestAIProvider(provider, prompt, config);
+          const invalid = options.validate?.(result.text);
+          if (invalid) throw aiFailure(provider, invalid + (result.warning ? '；' + result.warning : ''), result.text);
+          return result;
+        } catch (error) {
+          failures.push(error.aiReason ? error : aiFailure(provider, '服務暫時出錯'));
+        }
+      }
+      const message = failures.map(error => (error.provider === 'gemini' ? 'Gemini' : 'OpenRouter') + '：' + error.aiReason).join('\n');
+      const error = new Error(message + (failures.some(item => item.provider === 'openrouter') && !config.geminiKey ? '\n沒有備胎' : ''));
+      error.rawText = [...failures].reverse().find(item => item.rawText)?.rawText || '';
+      throw error;
+    }
+
+    function showAIRawText(text) {
+      document.getElementById('ai-raw-response').value = text;
+      document.getElementById('ai-raw-panel').hidden = false;
+      document.getElementById('ai-raw-panel').open = true;
+      document.getElementById('ai-reply-input').value = text;
+    }
+
+    function setAIStatus(message, isError = false) {
+      const status = document.getElementById('write-ai-status');
+      status.textContent = message;
+      status.className = 'work-status' + (isError ? ' ai-error' : '');
+    }
+
+    function normalizeHelperHistory(value) {
+      return Object.fromEntries(PLATFORMS.map(platform => [platform.id,
+        (Array.isArray(value?.[platform.id]) ? value[platform.id] : [])
+          .filter(message => message && ['user', 'assistant'].includes(message.role) && typeof message.content === 'string')
+          .slice(-8).map(message => ({ role: message.role, content: message.content,
+            ...(typeof message.instruction === 'string' ? { instruction: message.instruction } : {}) }))
+      ]));
+    }
+
+    function renderHelperHistory() {
+      const log = document.getElementById('helper-history');
+      log.replaceChildren();
+      const history = helperHistory[activePlatform];
+      if (!history.length) log.append(element('p', 'editor-note', '還沒有對話。先有貼文，再告訴小幫手想怎麼改。'));
+      history.forEach(message => {
+        const row = element('div', 'helper-message');
+        row.append(element('strong', '', message.role === 'user' ? '我說的' : '小幫手回的'),
+          element('p', '', message.role === 'user' ? message.instruction || message.content : message.content));
+        log.append(row);
+      });
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function setHelperStatus(message, isError = false) {
+      const status = document.getElementById('helper-status');
+      status.textContent = message;
+      status.className = 'work-status' + (isError ? ' ai-error' : '');
+    }
+
+    function updateUndoButton() {
+      document.getElementById('undo-ai-button').disabled = aiWriting || !previousDrafts;
+    }
+
+    function rememberPreviousDrafts() {
+      drafts[activePlatform] = editor.value;
+      previousDrafts = { ...drafts };
+      updateUndoButton();
+    }
+
+    function undoAIRevision() {
+      if (aiWriting || !previousDrafts) return;
+      drafts[activePlatform] = editor.value;
+      const current = { ...drafts };
+      PLATFORMS.forEach(platform => { drafts[platform.id] = previousDrafts[platform.id]; });
+      previousDrafts = current;
+      editor.value = drafts[activePlatform];
+      renderPreview();
+      const saved = autoSaveWorkspace();
+      setHelperStatus('已切換到上一版；再按一次可切回。' + (saved ? '已自動暫存。' : '自動暫存未成功，請查看左側提示。'));
+    }
+
+    function setAIBusy(busy, source = '') {
+      aiWriting = busy;
+      const writer = document.getElementById('write-ai-button');
+      writer.disabled = busy;
+      writer.textContent = busy && source === 'writer' ? '✨ AI 寫作中…' : '✨ 讓 AI 寫';
+      writer.setAttribute('aria-busy', String(busy && source === 'writer'));
+      const send = document.getElementById('helper-send-button');
+      send.disabled = busy;
+      send.textContent = busy && source === 'helper' ? '修改中…' : '送出';
+      send.setAttribute('aria-busy', String(busy && source === 'helper'));
+      const reviewer = document.getElementById('review-ai-button');
+      reviewer.disabled = busy;
+      reviewer.textContent = busy && source === 'review' ? '🔍 檢查中…' : '🔍 檢查官';
+      reviewer.setAttribute('aria-busy', String(busy && source === 'review'));
+      document.querySelectorAll('#helper-shortcuts button').forEach(button => { button.disabled = busy; });
+      updateUndoButton();
+    }
+
+    async function reviseWithAI(shortcut) {
+      if (aiWriting) return;
+      if (!editor.value.trim()) { setHelperStatus('先讓 AI 寫一篇', true); return; }
+      const input = document.getElementById('helper-input');
+      const instruction = (shortcut || input.value).trim();
+      if (!instruction) { setHelperStatus('請先輸入想怎麼修改。', true); return; }
+      if (mediaReading) { setHelperStatus('附件正在讀取，完成後再送出。', true); return; }
+      const platform = PLATFORMS.find(item => item.id === activePlatform);
+      const postId = currentPostId;
+      const originalText = editor.value;
+      const context = settings.brandSpec + '\n' + materialCardText();
+      const system = `你是【${BRAND.name}】的小編助理。使用者會叫你修改一篇【${platform.label}】貼文。只改使用者要求的地方，其他保持原樣；不能加素材卡上沒有的事實；遵守品牌規格；一律用台灣的繁體中文和台灣用語。不要出現簡體字，也不要用大陸用語（例如：視頻→影片、質量→品質、優化→改善、信息→訊息、網絡→網路、用戶→客人或使用者）。只回覆改好以後的整篇貼文，不要解釋、不要加標題。`
+        + '\n\n【品牌規格】\n' + settings.brandSpec + '\n\n【素材卡】\n' + materialCardText()
+        + '\n附件只有檔名，沒有圖片或影片內容；不要假裝看過附件。';
+      const user = { role: 'user', content: `目前的【${platform.label}】貼文：${originalText}。請這樣改：${instruction}`, instruction };
+      const messages = [{ role: 'system', content: system }, ...helperHistory[platform.id].slice(-8), user];
+      helperHistory[platform.id] = [...helperHistory[platform.id], user].slice(-8);
+      if (!shortcut) input.value = '';
+      renderHelperHistory();
+      autoSaveWorkspace();
+      setAIBusy(true, 'helper');
+      setHelperStatus('AI 修改中…');
+      const warning = document.getElementById('ai-fallback-note');
+      warning.textContent = '';
+      document.getElementById('ai-raw-panel').hidden = true;
+      try {
+        const result = await askAI(messages, {
+          onFallback(reason) {
+            warning.textContent = '⚠️ OpenRouter：' + reason + '。這次改用 Gemini。';
+            setHelperStatus(warning.textContent + '\nAI 修改中…');
+          }
+        });
+        if (result.warning) warning.textContent += (warning.textContent ? '\n' : '') + result.warning;
+        const currentText = activePlatform === platform.id ? editor.value : drafts[platform.id];
+        if (postId !== currentPostId || currentText !== originalText || context !== settings.brandSpec + '\n' + materialCardText()) {
+          showAIRawText(`【${platform.label}】\n${result.text}`);
+          setHelperStatus('AI 已回覆，但這篇內容已變更，因此未覆蓋。原文已保留，可用 📥 貼回手動分。');
+          return;
+        }
+        rememberPreviousDrafts();
+        drafts[platform.id] = result.text;
+        helperHistory[platform.id] = [...helperHistory[platform.id], { role: 'assistant', content: result.text }].slice(-8);
+        editor.value = drafts[activePlatform];
+        renderPreview();
+        renderHelperHistory();
+        const saved = autoSaveWorkspace();
+        setHelperStatus(`已修改 ${platform.label} 貼文。` + (saved ? '已自動暫存。' : '自動暫存未成功，請查看左側提示。')
+          + (warning.textContent ? '\n' + warning.textContent : ''));
+      } catch (error) {
+        setHelperStatus(error.message, true);
+        if (error.rawText) showAIRawText(`【${platform.label}】\n${error.rawText}`);
+      } finally {
+        setAIBusy(false);
+        renderAIUsage();
+      }
+    }
+
+    async function reviewWithAI() {
+      if (aiWriting) return;
+      drafts[activePlatform] = editor.value;
+      const status = document.getElementById('review-ai-status');
+      const setReviewStatus = (message, isError = false) => {
+        status.textContent = message;
+        status.className = 'work-status' + (isError ? ' ai-error' : '');
+      };
+      if (!PLATFORMS.some(platform => drafts[platform.id].trim())) {
+        setReviewStatus('還沒有貼文可以檢查', true);
+        return;
+      }
+      if (mediaReading) { setReviewStatus('附件正在讀取，完成後再檢查。', true); return; }
+      const checklist = settings.checklist.trim() || [
+        '1. 日期價格對不對', '2. 有沒有多加的事', '3. 只能在某平台講的有沒有跑掉',
+        '4. 先不要講的有沒有出現', '5. 有沒有不能用的字', '6. 有沒有簡體字或大陸用語'
+      ].join('\n');
+      // 每次獨立審核，不帶入寫作或小幫手的對話紀錄。
+      const messages = [
+        { role: 'system', content: `你是【${BRAND.name}】的審核官，專門挑毛病，不負責誇獎。把每一篇貼文照檢查清單一條一條對。✅ 符合；❌ 不符合（寫出哪一句有問題、該怎麼改）；⚠️ 要靠人判斷的，先給意見。回覆格式：【平台名稱】換行，然後每條一行「編號 符號 一句話」，最後【總結】列出要人工確認的事。不管清單有沒有寫，都另外檢查有沒有簡體字或大陸用語。報告也用台灣繁體中文寫。` },
+        { role: 'user', content: [
+          '【品牌規格】', settings.brandSpec, '【素材卡】', materialCardText(),
+          '附件只有檔名，沒有圖片或影片內容；不要假裝看過附件。',
+          '【檢查清單】', checklist, '【各平台貼文】',
+          ...PLATFORMS.map(platform => `【${platform.label}】\n${drafts[platform.id] || '（尚無貼文，略過此平台）'}`)
+        ].join('\n\n') }
+      ];
+      setAIBusy(true, 'review');
+      setReviewStatus('AI 檢查中…');
+      let fallback = '';
+      try {
+        const result = await askAI(messages, {
+          onFallback(reason) {
+            fallback = '⚠️ OpenRouter：' + reason + '。這次改用 Gemini。';
+            setReviewStatus(fallback + '\nAI 檢查中…');
+          }
+        });
+        const report = document.getElementById('review-ai-report');
+        report.replaceChildren();
+        result.text.split(/\r?\n/).forEach(line => {
+          const row = element('div', 'review-line' + (line.includes('❌') ? ' has-error' : line.includes('⚠') ? ' has-warning' : ''), line);
+          report.append(row);
+        });
+        document.getElementById('review-ai-dialog').showModal();
+        setReviewStatus(['檢查完成，請查看報告。', fallback, result.warning].filter(Boolean).join('\n'));
+      } catch (error) {
+        setReviewStatus(error.message, true);
+      } finally {
+        setAIBusy(false);
+        renderAIUsage();
+      }
+    }
+
+    async function writeWithAI() {
+      if (aiWriting) return;
+      if (mediaReading) { setAIStatus('附件正在讀取，完成後再按「讓 AI 寫」。', true); return; }
+      const prompt = composePrompt();
+      const signature = aiEditingSignature();
+      const warning = document.getElementById('ai-fallback-note');
+      setAIBusy(true, 'writer');
+      setAIStatus('AI 寫作中…');
+      warning.textContent = '';
+      document.getElementById('ai-raw-panel').hidden = true;
+      renderAIUsage();
+      try {
+        const result = await askAI(prompt, {
+          onFallback(reason) { warning.textContent = '⚠️ OpenRouter：' + reason + '。這次改用 Gemini。'; },
+          validate(text) {
+            const parsed = parseAIReply(text);
+            if (parsed.duplicates.length) return '平台標題重複，可用 📥 貼回手動分';
+            return PLATFORMS.some(platform => parsed.sections.get(platform.id)?.trim()) ? '' : '找不到【平台】標題，可用 📥 貼回手動分';
+          }
+        });
+        document.getElementById('ai-reply-input').value = result.text;
+        if (result.warning) warning.textContent += (warning.textContent ? '\n' : '') + (result.provider === 'gemini' ? 'Gemini' : 'OpenRouter') + '：' + result.warning;
+        if (signature !== aiEditingSignature()) {
+          showAIRawText(result.text);
+          setAIStatus('AI 已回覆，但你已切換貼文或修改內容，因此未覆蓋。請用 📥 貼回手動分。');
+          return;
+        }
+        if (!distributeAIReplyText(result.text, document.getElementById('write-ai-status'), false, true)) {
+          showAIRawText(result.text);
+          setAIStatus('回覆無法自動分配，原文顯示在下方，可用 📥 貼回手動分。', true);
+        }
+      } catch (error) {
+        setAIStatus(error.message, true);
+        if (error.rawText) showAIRawText(error.rawText);
+      } finally {
+        setAIBusy(false);
+        renderAIUsage();
       }
     }
 
@@ -890,7 +1457,8 @@
         version: 2, id: currentPostId, createdAt: currentCreatedAt, status: currentPostStatus,
         name: taiwanDate(now) + '＋' + (document.getElementById('material-' + MATERIAL_FIELDS[0].id).value.trim() || '未填日期'),
         savedAt: now, materials: { ...materialValues(), media: mediaFiles },
-        drafts: { ...drafts }, activePlatform, aiQuestions
+        drafts: { ...drafts }, activePlatform, aiQuestions,
+        helperHistory: normalizeHelperHistory(helperHistory), previousDrafts: previousDrafts ? { ...previousDrafts } : null
       };
     }
 
@@ -1009,6 +1577,11 @@
       currentPostStatus = normalizePostStatus(data.status);
       currentCreatedAt = typeof data.createdAt === 'string' ? data.createdAt : new Date().toISOString();
       aiQuestions = typeof data.aiQuestions === 'string' ? data.aiQuestions : '';
+      helperHistory = normalizeHelperHistory(data.helperHistory);
+      previousDrafts = data.previousDrafts && PLATFORMS.every(platform => typeof data.previousDrafts[platform.id] === 'string')
+        ? Object.fromEntries(PLATFORMS.map(platform => [platform.id, data.previousDrafts[platform.id]])) : null;
+      document.getElementById('helper-input').value = '';
+      setHelperStatus('');
       renderAIQuestions();
       PLATFORMS.forEach(platform => { drafts[platform.id] = typeof data.drafts?.[platform.id] === 'string' ? data.drafts[platform.id] : ''; });
       MATERIAL_FIELDS.filter(field => field.type !== 'file').forEach(field => {
@@ -1207,6 +1780,17 @@
       document.getElementById('prompt-dialog').showModal();
     }
     document.getElementById('compose-button').addEventListener('click', showComposedPrompt);
+    document.getElementById('write-ai-button').addEventListener('click', writeWithAI);
+    document.getElementById('review-ai-button').addEventListener('click', reviewWithAI);
+    document.getElementById('close-review-ai-button').addEventListener('click', () => document.getElementById('review-ai-dialog').close());
+    document.getElementById('helper-send-button').addEventListener('click', () => reviseWithAI());
+    document.getElementById('helper-input').addEventListener('keydown', event => {
+      if (event.key === 'Enter' && !event.isComposing) { event.preventDefault(); reviseWithAI(); }
+    });
+    document.querySelectorAll('#helper-shortcuts button').forEach(button => {
+      button.addEventListener('click', () => reviseWithAI(button.dataset.instruction));
+    });
+    document.getElementById('undo-ai-button').addEventListener('click', undoAIRevision);
     document.getElementById('chatgpt-button').addEventListener('click', async () => {
       showComposedPrompt();
       const status = document.getElementById('prompt-status');
@@ -1229,14 +1813,14 @@
     });
     document.getElementById('distribute-ai-button').addEventListener('click', distributeAIReply);
     document.getElementById('close-import-ai-button').addEventListener('click', () => document.getElementById('import-ai-dialog').close());
-    document.getElementById('settings-button').addEventListener('click', () => {
-      document.getElementById('settings-brand').value = settings.brandSpec;
-      document.getElementById('settings-checklist').value = settings.checklist;
-      document.getElementById('settings-dialog').showModal();
-    });
+    document.getElementById('settings-button').addEventListener('click', openSettings);
     document.getElementById('save-settings-button').addEventListener('click', saveSettings);
     document.getElementById('close-settings-button').addEventListener('click', () => document.getElementById('settings-dialog').close());
+    initializeAISettings();
     restoreSettings();
+    renderAIUsage();
+    window.addEventListener('focus', renderAIUsage);
+    setInterval(renderAIUsage, 60000);
     document.getElementById('my-posts-button').addEventListener('click', () => {
       renderPostList();
       document.getElementById('my-posts-dialog').showModal();
