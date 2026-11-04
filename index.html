@@ -23,6 +23,9 @@
       --shadow: #302e2912;
       --chat-background: #dcebf5;
       --danger: #b42318;
+      --picture-white-panel: rgba(255,255,255,.8);
+      --picture-black-panel: rgba(0,0,0,.65);
+      --picture-shadow: rgba(0,0,0,.8);
       --review-error-bg: #fde8e7;
       --review-warning-bg: #fff3cc;
       --status-draft: #e8e1d8;
@@ -180,6 +183,17 @@
     .chat-bubble { background: var(--paper); border-radius: 3px 14px 14px; padding: 12px; }
     .chat-bubble .preview-text { padding: 0; }
     .material-actions { padding: 0 23px 23px; display: grid; gap: 10px; }
+    .post-pictures { margin: 0 23px 18px; padding-top: 12px; border-top: 1px solid var(--line); }
+    .post-pictures h3 { margin: 0 0 8px; font-size: 16px; }
+    .picture-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; margin-top: 10px; }
+    .picture-thumb { position: relative; min-width: 0; }
+    .picture-select { width: 100%; display: block; padding: 2px; border: 2px solid var(--line); border-radius: 7px; background: var(--paper); cursor: pointer; }
+    .picture-select[aria-pressed="true"] { border-color: var(--brand); }
+    .picture-select img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 3px; }
+    .picture-remove { position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; line-height: 1; padding: 0; border: 1px solid var(--line); border-radius: 50%; background: var(--paper); color: var(--ink); cursor: pointer; }
+    .post-picture-preview { display: block; width: 100%; object-fit: cover; }
+    .chat-picture-bubble { margin-bottom: 6px; overflow: hidden; }
+    #picture-storage.ai-error { color: var(--danger); }
     .editor-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px; }
     .ai-helper { margin-top: 20px; border-top: 1px solid var(--line); padding-top: 18px; }
     .ai-helper h3 { margin: 0 0 12px; font-size: 17px; }
@@ -299,6 +313,35 @@
         <p>必填共五項；範例僅供參考，請填寫這次的素材。</p>
       </div>
       <form id="material-form" aria-label="貼文素材卡" autocomplete="off"></form>
+      <section class="post-pictures" aria-labelledby="post-pictures-title">
+        <h3 id="post-pictures-title">🖼 這篇的圖</h3>
+        <button class="action-button secondary" id="upload-pictures" type="button">📤 上傳</button>
+        <input id="post-picture-input" type="file" accept="image/*" multiple hidden>
+        <label class="editor-label" for="image-prompt">圖片描述（要畫什麼）</label>
+        <textarea id="image-prompt" placeholder="描述想搭配的畫面"></textarea>
+        <button class="action-button" id="generate-picture" type="button">🎨 生圖</button>
+        <button class="action-button" id="imagine-picture" type="button">🪄 AI 想圖再畫</button>
+        <p class="work-status" id="imagine-status" role="status"></p>
+        <p class="work-status" id="image-status" role="status"></p>
+        <p class="ai-usage" id="image-usage"></p>
+        <div class="picture-list" id="picture-list"></div>
+        <h3>加字</h3>
+        <label for="picture-text">圖上的字</label>
+        <textarea id="picture-text"></textarea>
+        <label for="picture-position">位置</label>
+        <select id="picture-position"><option value="top">上</option><option value="middle">中</option><option value="bottom" selected>下</option></select>
+        <label for="picture-size">大小</label>
+        <select id="picture-size"><option value="small">小</option><option value="medium" selected>中</option><option value="large">大</option></select>
+        <label for="picture-style">樣式</label>
+        <select id="picture-style"><option value="brand">白底主色字</option><option value="black">黑底白字</option><option value="shadow">白字陰影</option></select>
+        <label for="picture-download-size">下載尺寸</label>
+        <select id="picture-download-size"></select>
+        <button class="action-button secondary" id="download-picture" type="button">⬇ 下載這張圖</button>
+        <p class="work-status" id="picture-render-status" role="status"></p>
+        <p class="ai-usage" id="picture-storage" role="status"></p>
+        <p class="ai-usage" id="image-warehouse" role="status"></p>
+        <p class="work-status" id="picture-upload-status" role="status"></p>
+      </section>
       <div class="material-actions">
         <button class="action-button" id="compose-button" type="button">🧩 組好指令</button>
         <button class="action-button" id="write-ai-button" type="button">✨ 讓 AI 寫</button>
@@ -409,6 +452,8 @@
       <div>
         <label class="editor-label" for="settings-brand">品牌規格</label>
         <textarea id="settings-brand" placeholder="貼上完整品牌規格"></textarea>
+        <label class="editor-label" for="settings-image-spec">圖片規格</label>
+        <textarea id="settings-image-spec" placeholder="填寫風格、光線、顏色、構圖與不要的內容"></textarea>
       </div>
       <div>
         <label class="editor-label" for="settings-checklist">檢查清單</label>
@@ -430,6 +475,11 @@
         <div><label class="editor-label" for="settings-gemini-model">Gemini 模型</label><select id="settings-gemini-model"></select></div>
       </fieldset>
       <div>
+        <h3>生圖</h3>
+        <label class="editor-label" for="settings-image-model">生圖模型</label>
+        <select id="settings-image-model"></select>
+        <label class="editor-label" for="settings-image-custom">或自己打生圖模型名稱</label>
+        <input id="settings-image-custom" type="text">
         <label class="editor-label" for="settings-ai-priority">先用哪一組</label>
         <select id="settings-ai-priority"><option value="fallback">先用 OpenRouter，失敗了自動換 Gemini</option><option value="gemini">只用 Gemini</option><option value="openrouter">只用 OpenRouter</option></select>
         <p class="field-hint" id="ai-key-hint">金鑰只存在這個瀏覽器；依所選順序傳送品牌規格與素材文字。附件僅傳檔名。Gemini 接手時也會收到同一份指令。</p>
@@ -457,11 +507,26 @@
   <script type="application/json" id="brand-spec-data">"# 松風民宿品牌規格\n\n## 基本資料\n\n| 欄位 | 內容 |\n|---|---|\n| 品牌名稱 | 松風民宿 |\n| 帳號名稱 | FB：已提供粉絲專頁連結，頁面顯示名稱 ❓待補；IG：❓待補；訂房 LINE ID：`nona7688`（顯示名稱及是否為官方帳號 ❓待補） |\n| Facebook | [松風 Facebook（使用者提供）](https://www.facebook.com/p/%E6%9D%BE%E9%A2%A8-61572934135345/) |\n| 主色色碼 | `#90674c` |\n| 我要用的平台 | FB、IG、LINE |\n| 提供內容 | 住宿服務 |\n| 營業日 | 週一至週日 |\n| 地址 | 955臺東縣鹿野鄉龍田村龍馬路95巷17號 |\n| 營業時間 | ❓待補（入住／退房時間不等於全天營業或接待時段） |\n| 入住時間 | 15:00－18:00 |\n| 退房時間 | 11:00 前須退房 |\n| 聯絡方式／訂房管道 | 電話：0987-425-930；訂房 LINE ID：`nona7688`；亦可透過 [Booking](https://www.booking.com/Share-fu4Jfus)、[Agoda](https://www.agoda.com/zh-tw/songfeng-b-b/hotel/taitung-tw.html?cid=1844104&ds=Iw6i47uv3MvZBXkJ) 訂房 |\n| 房價 | 雙人房：每房每晚 NT$2,000；4 人房單床位：每床每晚 NT$700；4 人房整間：每房每晚 NT$2,800 |\n| 幣別與計價 | 新臺幣（NT$），按晚計價；平日、假日與旺季同價 |\n| 得獎紀錄 | ❓待補 |\n\n> 內容來源：松風品牌卡.md，以及使用者於 2026-10-15 補充的 Facebook 連結、地址、電話、訂房 LINE ID、Booking／Agoda 訂房管道及房源連結、房價與入住／退房時間。Facebook、Booking 與 Agoda 頁面本次未能讀取，連結依使用者提供記錄，未據此補寫頁面內容；Booking 與 Agoda 均使用使用者最新提供的連結。小島咖啡範例只供章節、規則與骨架的格式參考。\n> 「品牌卡明載」是原有資料；「建議規則」是為了讓寫作可執行而新增的編輯設定，不代表品牌卡原本有規定。缺少的品牌事實一律標「❓待補」。\n> 新增口氣來源：使用者於 2026-10-15 提供的 3 篇品牌 Facebook 貼文（發文日期未提供）。用於辨識實際口氣，舊文中的營運進度與商品不直接視為現況。\n\n## 1. 品牌口氣（寫具體）\n\n品牌重視自然與地方生活；實際 FB 貼文則由「小幫手」出面聊天，有自嘲、括號插話、家人對話與感謝，不只寫安靜抒情的風景。FB 故事採小幫手口吻；住宿公告仍優先講清楚資訊。\n\n**品牌卡明載的方向：**\n\n- 對象是去台東熱氣球季的遊客、想去台東放鬆的情侶，以及喜愛文青氛圍、大自然與慢活的旅客。\n- 強調民宿特色與在地生活，不以飯店或旅店的一應俱全作為訴求。\n- 不只介紹住宿，也傳達了解在地生活的想法。\n\n**建議規則（新增的編輯設定）：**\n\n- 稱呼讀者以「你」「大家」為主；新稿統一不用「您」「親愛的」「各位貴賓」。原 FB 貼文曾用「您」，因此這是統一編輯的建議，不是原品牌從未使用。\n- FB 故事自稱「小幫手」，談共同心意時可用「我們」；提到經營者用「老闆」，不虛構姓名。IG 若承接小幫手故事可沿用自稱；LINE 公告用「松風」或「我們」。\n- 一句只講一件事；以句號、問號或驚嘆號作為句尾。FB 每句最多 60 字，IG、LINE 每句最多 40 字；超過就拆句。舊文原文引用不受此限。\n- 每段 1～3 句；以空行分段。平台另有限制時，以該平台為準。\n- 每篇只選 1 個主題，例如名字的故事、地方生活或住宿公告。\n- emoji 上限：FB 每篇 5 個，IG 每篇 2 個，LINE 每篇 1 個；都可以不用，不連續排列。這些上限是參考實際貼文後的建議值。\n- 驚嘆號：FB 全篇最多 2 個，可在同一句使用「！！」；IG、LINE 全篇最多 1 個。\n- FB 括號插話最多 4 處，每處最多 15 字；可用「（撥髮）」「（？）」等自嘲，不拿旅客開玩笑。注音諧音或「484」等數字諧音一篇合計最多 1 處，限日常故事，訂房公告不用。\n- 有來源時可以放 1 組家人或老闆對話；沒有逐字資料就改為間接敘述，不編造引號內對白。故事中可以自嘲，再回到對家人、協助者或土地的感謝；不強迫每篇加笑點。\n- 多用品牌卡已有的具體畫面，例如木質空間、龍田的草地與茶田；不自行補寫窗外景色、天氣或現場見聞。\n- 描述適合的旅行方式，例如放慢步調、了解在地；不把對特定旅客的拒絕當成貼文開場。\n- 邀請句每篇最多 1 句，不催促、不倒數；需要訂房資訊時，只放已確認的管道。\n\n**計數方式：**以下字數均計標點、不計空白與換行；網址不計入字數。平台行數以手動換行後的非空白行計，手機自動折行不另計；emoji 的上限包含骨架中的符號。\n\n## 2. 不能用的字\n\n**品牌卡明載，所有新寫貼文都禁用：**\n\n- 狂歡\n- 慶祝\n- 熱鬧\n\n**建議新增的禁用說法：**\n\n- 催促：「快搶」「手刀訂房」「錯過可惜」「最後倒數」。\n- 誇大：「全台第一」「必住」「保證療癒」「百分之百放鬆」。\n- 一應俱全的承諾：「什麼都有」「所有需求都能滿足」「飯店級全套服務」。\n\n不能用的原因是與品牌方向不合或缺少依據，不能換個近義詞繼續作同樣的承諾。\n\n## 3. 不准自己加的東西\n\n- 地址、電話、Facebook 連結與訂房 LINE ID：使用基本資料中的已提供內容。Booking／Agoda 房源連結使用基本資料中的網址。IG 帳號、各平台顯示名稱與其他訂房網址：❓待補；不自行拼出網址。\n- 房價使用已確認的「雙人房每房每晚 NT$2,000」「4 人房單床位每床每晚 NT$700」「4 人房整間每房每晚 NT$2,800」，平日、假日與旺季同價。四人房整間價格由使用者明確提供；不把單床位價格寫成整間房價，也不自行改寫成「起」價。折扣、訂金與取消規則：❓待補。\n- 入住時間為 15:00－18:00，11:00 前須退房。營業具體時段、提前入住與延後退房規則：❓待補；不能把入住時段當成全部接待時段，也不能把「週一至週日」寫成「24 小時服務」。\n- 已知房價項目有雙人房與 4 人房單床位；完整房型、房數、入住人數規則、設施、早餐、交通與接送：❓待補。\n- 得獎、評分、旅客評價、入住人次、經營年數或其他成果數字：❓待補。\n- 熱氣球活動日期、票價、距離、步行或車程：❓待補。品牌卡提到目標旅客，不代表提供活動方案或能從民宿看見熱氣球。\n- 書店、茶飲、咖啡、課程、導覽及店家合作的實際服務內容：❓待補。\n- 舊 FB 文曾提到民宿牌申請、農產品與手作品販售。可作歷史原文參考；目前登記名稱與編號、是否持續販售、品項、庫存及價格：❓待補。不能據此新增現行認證或「現貨供應」承諾。\n- 舊文的「期盼在6月前能夠正式營業」是當時的計畫，日期年份未提供，不作為目前進度或正式開幕日。小幫手上過森林療癒課程的敘述，也不代表民宿提供相關課程；不把舊文中的個人感受改成健康效果保證。\n\n品牌卡的「我們希望這裡成為一處能閱讀、喝茶或咖啡、與人聊聊地方生活的空間」是願景。改寫時保留「希望」或「想讓」的語氣，不寫成「入住附咖啡」「提供茶席」「可預約課程」等現行服務。\n\n品牌卡原文已有的「五月完工」「只住一兩晚」可以保留原意，但不能推算完工年份，也不能把「一兩晚」改寫成最低入住晚數。\n\n「❓待補」用於草稿與規格。正式發布前，必要資訊要補齊；非必要資訊可以整句刪除，不能自行填值。\n\n## 4. 參考貼文（照這篇的感覺寫）\n\n### 4.1 原有品牌卡參考文\n\n以下完整保留品牌卡的範例原文，不是新增服務公告，也不受本規格建議的字數與段落上限限制。新稿學它的敘事感，依各平台骨架調整長度。\n\n```text\n「五月賣松風，人間恐無價。」\n一句在朋友談話中被想起的詩，為松風取了名字；民宿又恰好在五月完工，讓這段緣分有了落腳的地方。\n松風位於鹿野龍田村。我們希望，來到這裡的旅人，能留一點時間認識住宿之外的生活：看看草地與茶田，走進沿途的小店，聽聽在這裡生活的人如何過日子。\n白天，從松風出發，沿著自己的興趣探索地方；夜裡，回到沒有電視與 KTV 的安靜空間，聊聊今天的見聞，或讓自己好好休息。那些途中遇見的人與事，都可以慢慢成為旅行的一部分。\n松風也正朝結合閱讀、品茶與在地選物的空間前進，期待未來與地方有更多連結。讓旅人因住宿來到龍田，也因認識這裡的日常，多一個想再回來的理由。\n\n```\n\n照這篇的感覺寫：先給一個具體起點，再說它與松風的關係，最後用一句邀請收尾。不要只堆「療癒、質感、慢活」等形容詞，也不要每篇都複製同一段故事。\n\n### 4.2 品牌實際 FB 貼文：照這些篇的感覺寫\n\n以下是使用者提供的 3 篇原文。僅拆開篇章、保留段落，將 Facebook emoji 與 hashtag 連結轉成純文字；保留原有用字、錯別字、玩笑與標點，不是新寫的貼文。歷史原文不適用新稿字數限制，也不直接作為當前營運公告。\n\n**範例一：小幫手出場、籌備感謝與小小工商。**學它「先開玩笑，再說不容易，最後感謝」的轉折；商品內容發布前須另確認。\n\n```text\n小幫手又來了（出場率484有點高？）\n被老闆拜（ㄒㄧㄝˊ）託（ㄆㄛˋ）幫他寫一篇文，好吧！誰叫小幫手很容易文思泉湧（撥髮）\n看到老闆從空空的屋子開始，真的很不容易，很多事情親力親為，不像小幫手的才能只會點點手指頭+嘴巴講講話，但我也申請了合法民宿牌出來（甩髮）\n有時要成就一件事情，的確是不簡單，各方面大家的幫忙，不管是老天、父母、身邊的親友團、師傅們、當然怎麼可以忘記小幫手🙋‍♀️…等等，雖然這看起來是一條未知又奇幻、帶點夢想的旅程，但要走過才會知道吧～就像熱氣球起飛，你也不知道它會在哪降落。（若我們預算不夠搭乘熱氣球，但一樣能來台東看看美麗又溫柔的山水喔！）\n總之老闆要表達對大家的感恩🙏也感謝這塊包涵與孕育我們的土地❤️\n最後偷偷小小工商🥹若來台東，小幫手家的農產品，也能在民宿購買到，有少量好吃的自然農法巧克力、桑椹果醬、桑椹發酵液、精油、亞麻手作衣服、手作品…都可以找老闆購買喔🙏\n#鹿野民宿\n#熱氣球\n#歡迎訂房\n```\n\n**範例二：從自己的生活經驗談自然。**學它「先說自己如何改變，再邀請大家感受」的方式；不沿用裝修進度或健康效果說法。\n\n```text\n小幫手來祝大家新年快樂！！\n記得好多年前小幫手來台東的時候，當時的懵懂少女（？）並不知道台東的好與價值，也許有些人覺得奇怪，為什麼要選擇到鄉下生活？經過多年以後，小幫手手握著泥土、親近花草樹木，才懂得人與自然中間的價值是什麼。\n除了這裡沒有都市的擁擠、沒有一開門就見到高高低低的建築物、沒有亮眼的霓虹燈光、冬天沒有霧濛濛的天空…\n這裡有的是新鮮空氣、緩慢的步調、錢的味道不重（？）…小幫手開始發現在自然環境，是我最舒服放鬆的狀態😌進而開始想了解很多關於自然的事情，也因為能感受到自然對我的幫忙，進而去上森林療癒的課程。\n我們就算沒有辦法生活在鄉下，也可以有空隨時到森林中走走，讓副交感神經活絡，可以釋放壓力情緒…好處多多。但這個篇幅還是不要寫太多拉里拉雜的，搞得像自己的粉專一樣😗\n報告一下民宿現在進度還在裝修採購中，我們期盼在6月前能夠正式營業，屆時歡迎大家來感受台東這片黏人的土地❤️\n祝福大家在新的一年平安自在、平心靜氣，保有澄澈寧靜的自己。\n#好事馬上旺，不開心的事馬上忘\n#歡迎來鹿野跳馬\n#民宿現在亂亂的沒什麼好拍，小幫手只好犧牲自己選了最適合（？）馬年的影片。\n```\n\n**範例三：取名與羅漢松的故事。**學它「真實小事＋家人對話＋最後一個笑點」的節奏；詩作作者歸屬是原文說法，未另查證，對外引用作者前須核實。\n\n```text\n《小幫手說故事》\n當初要申請合法的民宿牌，首先第一步要先想個響亮亮又好記的名字。勞闆想了好多個，都被小幫手說不好🤣\n小幫手本身是文青美少女（？？？\n取名字喜歡有氣質、內涵+意義，光是想個名字，小幫手的親友都來幫忙想這樣😆 有天小幫手那位常常文思泉湧的阿母說：欸欸～取松風如何？\n是一首我從小就常常聽長輩唸的詩：\n本是山中人，愛說山中話。\n五月賣松風，人間恐無價。\n而谷歌也查不太到關於這首詩的資訊，只知道是一位釋思岳禪師寫的。\n取名松風\n來往松風體驗台東，感受這首詩與您內心或者跟大自然的連結🌈\n故事之後的故事\n勞闆買了一棵羅漢松種在門口，小棵到我阿母走進去再走出來，問一句：「沒看到羅漢松啊？」「在那邊啊～（手指）」\n「那麼小！跟桂花一樣高，難怪我沒看到」\n#我們來看看哪時候可以長得跟我一樣高😏\n#鹿野民宿\n```\n\n**兩份資料的取名敘述不同：**原有參考文寫「朋友談話」，這次 FB 原文寫「阿母提議」。後續新稿暫用共同資訊「因一句詩而取名」，具體由誰提議標「❓待補」，不把兩個版本拼成新故事。原有參考文保留供對照。\n\n## 5. 三個平台的規則＋填空骨架\n\n> 平台名單來自品牌卡；以下讀者分工、篇幅、第一行、段落配置與固定結尾均為建議規則。品牌卡沒有各平台受眾數據，不能當成實際追蹤者分析。\n> 骨架中的括號是填寫提示，完成貼文時刪除。emoji 上限依平台：FB 5 個、IG 2 個、LINE 1 個。FB 骨架依實際小幫手貼文調整；IG、LINE 沒有提供實際貼文，仍是建議設定。\n\n### Facebook\n\n- **誰在看：**想進一步了解松風故事與鹿野生活、正在考慮台東住宿的旅客（建議的內容對象，不預設年齡或熟客身分）。\n- **多長：**全文 300～650 字；正文 5～8 段，每段 1～3 句，另加 hashtag；最多 3 個 hashtag。這是編輯建議，不是對舊文長度的描述。\n- **第一行寫什麼：**最多 30 字，用「小幫手」出場句或「《小幫手說故事》」帶出本篇主題，可以加 1 個括號小吐槽；不必每篇都用同一句。\n- **中間寫什麼：**先講 1 件有來源的真實小事，帶入家人或老闆互動，再說感受、感謝或與土地的連結。可選 1 小段訂房資訊，不強迫每篇工商；不能虛構新對話或自身經歷。\n- **最後一行固定寫：**「#鹿野民宿」。實際貼文用過這個 hashtag，但固定放最後一行是新增的建議規則；其他 hashtag 與聯絡方式放在它前面。\n\n**骨架（照這個格子填）：**\n\n```text\n（第 1 段：小幫手出場或《小幫手說故事》，首行最多 30 字）\n\n（第 2 段：一件有資料來源的小事，1～3 句）\n\n（第 3 段：家人或老闆的互動，可加一處自嘲；不編對白）\n\n（第 4 段：小幫手的感受，連到自然、土地或地方生活）\n\n（第 5 段：感謝或一句邀請，不催促）\n\n（可選加 1～3 段延伸同一故事；需要訂房時，其中 1 段寫「訂房洽 LINE ID：nona7688」）\n（可選其他 hashtag，最多 2 個）\n#鹿野民宿\n```\n\n### Instagram\n\n- **誰在看：**被自然與木質空間影像吸引、想感受台東慢步調的旅客（建議的內容對象，不預設年齡）。\n- **多長：**全文 60～140 字、4～6 個非空白行；每行最多 30 字；hashtag 0～3 個，計入總字數與行數。\n- **第一行寫什麼：**用最多 20 字，點出照片中的 1 個可確認畫面或與它相關的 1 個想法。沒有照片時，不宣稱「今天拍到」。\n- **中間寫什麼：**用 2～3 行寫畫面細節與地方生活的連結，一行一件事；不塞進完整品牌歷史。\n- **最後一行固定寫：**「住進鹿野的生活裡。」這是前版採用的建議結尾，不是這次實際 FB 貼文的固定用語。\n- **帳號與 hashtag：**實際 IG 帳號為「❓待補」，不造一個 @ 帳號。需要 hashtag 時，可從品牌卡詞彙選用 `#松風民宿`、`#鹿野`、`#慢活`，放在固定結尾前。\n\n**骨架：**\n\n```text\n（第 1 行：照片畫面或相關想法，最多 20 字）\n（第 2 行：1 個有依據的細節）\n（第 3 行：與鹿野生活或慢步調的連結）\n（可選第 4 行：延伸同一主題；可選 hashtag 另占 1 行）\n住進鹿野的生活裡。\n```\n\n### LINE\n\n- **誰在看：**已加入帳號、想快速取得住宿資訊或公告的旅客（建議的內容對象；不自行稱為會員）。\n- **多長：**全文 50～120 字、4～6 個非空白行；每行最多 30 字；hashtag 0 個。\n- **第一行寫什麼：**「【松風住宿】＋一句重點」或「【松風公告】＋一句重點」，全行最多 25 字。沒有優惠資料，就不寫會員限定或折扣。\n- **中間寫什麼：**列 1～3 個重點，每點 1 行；另用 1 行寫清楚接下來怎麼做。使用「・」列點，不用多個 emoji 當項目符號。\n- **最後一行固定寫：**「松風民宿」（建議固定署名）。\n- **行動管道：**可寫「訂房洽 LINE ID：nona7688」或「訂房洽 0987-425-930」。Booking／Agoda 可使用基本資料中的房源連結；回覆、付款、確認訂房流程為「❓待補」；不能先承諾「回覆就能訂房」或「點選選單」，也不將訂房 LINE ID 視為已確認的官方帳號。\n\n**骨架：**\n\n```text\n【松風公告】（一句重點，整行最多 25 字）\n・（重點 1：已確認的資訊）\n・（可選重點 2）\n・（可選重點 3）\n訂房洽 LINE ID：nona7688\n松風民宿\n```\n\n## 6. 平台限定與發布前檢查\n\n**建議規則：**\n\n- 已確認訂房管道為電話、LINE ID、Booking 與 Agoda。平台專屬優惠、會員制度及 LINE 自動訂房功能仍為「❓待補」；不沿用小島咖啡的會員預購與優惠。\n- FB 用故事展開，IG 用畫面與短句，LINE 用重點與明確下一步；同一主題也依骨架改寫。\n- 檢查品牌名稱、主色色碼與平台是否和品牌卡一致。\n- 檢查新稿禁用詞是否為 0 個；emoji 是否符合 FB 最多 5 個、IG 最多 2 個、LINE 最多 1 個；句長、篇幅、插話與固定結尾是否符合平台規則。\n- 檢查小幫手的趣味是否來自語氣，而不是編造經歷；歷史貼文中的商品、裝修、日期、證照與健康效果說法不得直接轉為現行承諾。\n- 檢查每個地址、價格、時間、數字與服務承諾是否有資料來源；缺資料就標「❓待補」。\n- 檢查「希望成為」有沒有被誤寫成「現在提供」。\n- 檢查骨架提示及「❓待補」是否已在發布前補齊或刪除；沒有確認的必要資訊就不發布該公告。\n\n## 7. 哪些地方是我猜的？\n\n以下是我依品牌卡與實際 FB 範例提出的寫作設定，並非使用者已確認的硬性規定：\n\n1. **口氣的量化方式：**新稿統一用「你／大家」、FB 每句最多 60 字、IG／LINE 每句最多 40 字、每段最多 3 句、每篇 1 個主題、FB／IG／LINE emoji 上限為 5／2／1 個、FB 驚嘆號最多 2 個而其他平台最多 1 個、FB 括號插話最多 4 處及諧音最多 1 處、邀請句最多 1 句。小幫手自稱、自嘲與家人對話有實際貼文依據；具體數字上限是我訂的建議。\n2. **新增禁用說法：**催促、誇大與一應俱全的承諾；只有「狂歡、慶祝、熱鬧」是品牌卡明列的禁用字。\n3. **平台讀者分工：**FB 看故事、IG 看畫面、LINE 看資訊，是內容安排建議，沒有帳號受眾數據佐證。\n4. **平台數字與排版：**各平台的字數、行數、段落數、hashtag 數量及擺放位置，全部是建議值。\n5. **固定結尾與標題：**FB 固定以「#鹿野民宿」結尾是新增建議，雖然原文用過該標籤；IG 的「住進鹿野的生活裡。」沿用前版設定，LINE 的固定署名與公告標題也是建議。沒有證據顯示品牌目前每篇都這樣結尾。\n\n**不是猜的口氣特徵：**「小幫手」出場、自嘲、括號插話、諧音、家人對話，以及從玩笑轉向感謝與自然感受，都能在這次提供的 FB 原文找到。這些是對文本的觀察，不是成效或受眾數據。\n\n品牌名稱、平台、主色、營業日、品牌卡描述的受眾、三個禁用字及參考貼文均來自品牌卡。Facebook 連結、完整地址、電話、訂房 LINE ID、Booking／Agoda 管道與房源連結、三項房價、新臺幣按晚計價、平日假日旺季同價，以及入住時間 15:00－18:00、11:00 前須退房，均來自使用者補充，沒有猜填。未確認的帳號顯示名稱、IG 帳號、折扣、訂金、取消規則、營業具體時段、提前入住與延後退房規則、得獎及其他營運資料均標「❓待補」。\n"</script>
   <script>
     // ── 品牌、平台與欄位設定：日後從這裡修改 ──
+    const IMAGE_MODELS = ['bytedance-seed/seedream-5-0-flash', 'qwen/qwen-image-2.1-turbo', 'qwen/qwen-image-3', 'bytedance-seed/seedream-5-0-pro', 'google/gemini-3.1-flash-lite-image'];
+    let imageGenerating = false;
+    const PIC_SIZE = { fb: [1080, 1080], ig: [1080, 1350], line: [1040, 1040], threads: [1080, 1350] };
+    const SIZES = [
+      { id: 'platform', name: '跟著平台', size: null },
+      { id: 'square', name: '方形', size: [1080, 1080] },
+      { id: 'portrait', name: '直式', size: [1080, 1350] },
+      { id: 'story', name: '限動', size: [1080, 1920] },
+      { id: 'line-avatar', name: 'LINE 大頭貼', size: [640, 640] },
+      { id: 'line-broadcast', name: 'LINE 群發圖', size: [1040, 1040] }
+    ];
+    const TEXT_DEFAULTS = { text: '', position: 'bottom', size: 'medium', style: 'brand', downloadSize: 'platform' };
+    let pictureText = { ...TEXT_DEFAULTS };
+    let pictureRenderVersion = 0;
     const AI_MODEL = 'deepseek/deepseek-v4.1-flash';
     const AI_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
     const GEMINI_MODEL = 'gemini-3.8-flash';
     const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
-    const AI_TIMEOUT_MS = 120000;
+    const OPENROUTER_TIMEOUT_MS = 300000;
+    const GEMINI_TIMEOUT_MS = 120000;
     const OPENROUTER_MODELS = [
       { group: 'DeepSeek', models: [AI_MODEL, 'deepseek/deepseek-v4-pro', 'deepseek/deepseek-v3.2'] },
       { group: 'Kimi', models: ['moonshotai/kimi-k2.6', 'moonshotai/kimi-k2.5', 'moonshotai/kimi-k3'] },
@@ -500,7 +565,7 @@
     const POSTS_KEY = 'songfeng-social-posts-v1';
     const AUTOSAVE_KEY = 'songfeng-social-autosave-v2';
     const AI_USAGE_KEY = 'songfeng-social-ai-usage-v1';
-    const AI_DEFAULTS = { aiKey: '', openrouterModel: AI_MODEL, customModel: '', reasoning: 'low', geminiKey: '', geminiModel: GEMINI_MODEL, providerMode: 'fallback' };
+    const AI_DEFAULTS = { imageSpec: '', imageModel: IMAGE_MODELS[0], customImageModel: '', aiKey: '', openrouterModel: AI_MODEL, customModel: '', reasoning: 'low', geminiKey: '', geminiModel: GEMINI_MODEL, providerMode: 'fallback' };
     let settings = { brandSpec: BRAND_SPEC, checklist: '', ...AI_DEFAULTS };
     let aiWriting = false;
     let helperHistory = Object.fromEntries(PLATFORMS.map(platform => [platform.id, []]));
@@ -514,6 +579,14 @@
     let currentCreatedAt = new Date().toISOString();
     let aiQuestions = '';
     let mediaFiles = [];
+    let postPictures = [];
+    let imageDatabasePromise;
+    let warehouseReady = false;
+    let warehouseLoading = false;
+    let warehouseStatsVersion = 0;
+    let mainPictureIndex = 0;
+    let pictureUploadVersion = 0;
+    let pictureStorageFailed = false;
     let previewMediaIndex = 0;
     let fbExpanded = false;
     let mediaReadVersion = 0;
@@ -621,6 +694,10 @@
         const row = element('div', 'chat-row');
         const message = element('div', 'chat-message');
         message.append(element('p', 'chat-name', BRAND.name));
+        const pictureBubble = element('div', 'chat-bubble chat-picture-bubble');
+        pictureBubble.id = 'line-main-picture';
+        pictureBubble.hidden = true;
+        message.append(pictureBubble);
         const bubble = element('div', 'chat-bubble');
         bubble.append(makeText(), makeMediaSlot());
         const bubbleRow = element('div', 'chat-bubble-row');
@@ -711,10 +788,39 @@
     }
 
     function updateMediaPreview() {
+      const renderVersion = ++pictureRenderVersion;
       const slot = document.getElementById('live-media-preview');
       if (!slot) return;
       slot.querySelectorAll('video').forEach(video => video.pause());
       slot.replaceChildren();
+      const pictureBubble = activePlatform === 'line' ? document.getElementById('line-main-picture') : null;
+      if (pictureBubble) {
+        pictureBubble.replaceChildren();
+        pictureBubble.hidden = true;
+      }
+      const main = postPictures[mainPictureIndex];
+      if (main) {
+        const picture = element('img', 'post-picture-preview');
+        const [width, height] = PIC_SIZE[activePlatform] || PIC_SIZE.fb;
+        picture.style.aspectRatio = `${width} / ${height}`;
+        picture.src = main.dataUrl;
+        picture.alt = main.name;
+        drawPostPicture(main, width, height, { ...pictureText }).then(canvas => {
+          if (renderVersion === pictureRenderVersion) {
+            picture.src = canvas.toDataURL('image/png');
+            document.getElementById('picture-render-status').textContent = '';
+          }
+        }).catch(() => {
+          if (renderVersion === pictureRenderVersion) document.getElementById('picture-render-status').textContent = '圖片加字失敗，請重新選圖。';
+        });
+        if (pictureBubble) {
+          pictureBubble.append(picture);
+          pictureBubble.hidden = false;
+        } else {
+          slot.append(picture);
+        }
+        return;
+      }
       if (!mediaFiles.length) {
         if (activePlatform === 'ig') {
           const picture = element('div', 'preview-image preview-image-ig');
@@ -927,6 +1033,9 @@
 
     function normalizeAISettings(saved) {
       return {
+        imageSpec: typeof saved.imageSpec === 'string' ? saved.imageSpec : '',
+        imageModel: IMAGE_MODELS.includes(saved.imageModel) ? saved.imageModel : IMAGE_MODELS[0],
+        customImageModel: typeof saved.customImageModel === 'string' ? saved.customImageModel.trim() : '',
         brandSpec: typeof saved.brandSpec === 'string' ? saved.brandSpec : BRAND_SPEC,
         checklist: typeof saved.checklist === 'string' ? saved.checklist : '',
         aiKey: typeof saved.aiKey === 'string' ? saved.aiKey.trim() : '',
@@ -940,6 +1049,11 @@
     }
 
     function initializeAISettings() {
+      IMAGE_MODELS.forEach(model => {
+        const option = element('option', '', model);
+        option.value = model;
+        document.getElementById('settings-image-model').append(option);
+      });
       const select = document.getElementById('settings-ai-model');
       OPENROUTER_MODELS.forEach(group => {
         const options = element('optgroup');
@@ -972,6 +1086,9 @@
 
     function saveSettings() {
       const next = normalizeAISettings({
+        imageSpec: document.getElementById('settings-image-spec').value,
+        imageModel: document.getElementById('settings-image-model').value,
+        customImageModel: document.getElementById('settings-image-custom').value,
         brandSpec: document.getElementById('settings-brand').value,
         checklist: document.getElementById('settings-checklist').value,
         aiKey: document.getElementById('settings-ai-key').value,
@@ -984,6 +1101,7 @@
       });
       try {
         localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
+        renderPictureStorage();
         settings = next;
         document.getElementById('settings-status').textContent = '已儲存，重新開啟網頁仍會保留。下一次寫作會使用這份設定。';
       } catch {
@@ -993,6 +1111,8 @@
 
     function openSettings() {
       const fields = {
+        'settings-image-spec': 'imageSpec',
+        'settings-image-model': 'imageModel', 'settings-image-custom': 'customImageModel',
         'settings-brand': 'brandSpec', 'settings-checklist': 'checklist', 'settings-ai-key': 'aiKey',
         'settings-ai-model': 'openrouterModel', 'settings-ai-custom-model': 'customModel',
         'settings-ai-reasoning': 'reasoning', 'settings-gemini-key': 'geminiKey',
@@ -1018,7 +1138,7 @@
 
     function persistAIUsage(data) {
       usageMemory = data;
-      try { localStorage.setItem(AI_USAGE_KEY, JSON.stringify(data)); usageStorageFailed = false; }
+      try { localStorage.setItem(AI_USAGE_KEY, JSON.stringify(data)); usageStorageFailed = false; renderPictureStorage(); }
       catch { usageStorageFailed = true; }
     }
 
@@ -1066,6 +1186,7 @@
     }
 
     function renderAIUsage() {
+      renderImageUsage();
       const daily = dailyAIUsage();
       const last = daily.last || lastAIUsage;
       let current = '';
@@ -1103,7 +1224,7 @@
         .replace(/<\/think\s*>/gi, '').trim();
     }
 
-    async function requestAIProvider(provider, prompt, config) {
+    async function requestAIProvider(provider, prompt, config, maxTokens) {
       const isGemini = provider === 'gemini';
       const key = isGemini ? config.geminiKey : config.aiKey;
       const body = {
@@ -1111,12 +1232,12 @@
         messages: Array.isArray(prompt) ? prompt.map(message => ({ role: message.role, content: message.content })) : [{ role: 'user', content: prompt }]
       };
       if (!isGemini) {
-        body.max_tokens = 4000;
+        body.max_tokens = maxTokens;
         body.reasoning = { effort: config.reasoning, exclude: true };
         body.usage = { include: true };
       }
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+      const timeout = setTimeout(() => controller.abort(), isGemini ? GEMINI_TIMEOUT_MS : OPENROUTER_TIMEOUT_MS);
       let data = null;
       try {
         const response = await fetch(isGemini ? GEMINI_ENDPOINT : AI_ENDPOINT, {
@@ -1138,7 +1259,7 @@
         const text = cleanAIText(choice?.message?.content);
         if (!text) throw aiFailure(provider, choice?.finish_reason === 'length'
           ? '想太久，字數用完了（⚙ 設定把思考調成少想一點）' : '沒有回傳文字');
-        return { provider, text, warning: choice.finish_reason === 'length' ? '回覆可能被切掉了' : '' };
+        return { provider, text, cost: numericUsage(data?.usage?.cost), warning: choice.finish_reason === 'length' ? '回覆可能被切掉了' : '' };
       } catch (error) {
         if (error.aiReason) throw error;
         throw aiFailure(provider, error.name === 'AbortError' ? '等太久' : '連不到（檢查網路）');
@@ -1162,7 +1283,7 @@
         try {
           const key = provider === 'gemini' ? config.geminiKey : config.aiKey;
           if (!key) throw aiFailure(provider, '還沒填金鑰。按 ⚙ 設定。');
-          const result = await requestAIProvider(provider, prompt, config);
+          const result = await requestAIProvider(provider, prompt, config, options.maxTokens);
           const invalid = options.validate?.(result.text);
           if (invalid) throw aiFailure(provider, invalid + (result.warning ? '；' + result.warning : ''), result.text);
           return result;
@@ -1285,6 +1406,7 @@
       document.getElementById('ai-raw-panel').hidden = true;
       try {
         const result = await askAI(messages, {
+          maxTokens: 4000,
           onFallback(reason) {
             warning.textContent = '⚠️ OpenRouter：' + reason + '。這次改用 Gemini。';
             setHelperStatus(warning.textContent + '\nAI 修改中…');
@@ -1347,6 +1469,7 @@
       let fallback = '';
       try {
         const result = await askAI(messages, {
+          maxTokens: 6000,
           onFallback(reason) {
             fallback = '⚠️ OpenRouter：' + reason + '。這次改用 Gemini。';
             setReviewStatus(fallback + '\nAI 檢查中…');
@@ -1381,6 +1504,7 @@
       renderAIUsage();
       try {
         const result = await askAI(prompt, {
+          maxTokens: 8000,
           onFallback(reason) { warning.textContent = '⚠️ OpenRouter：' + reason + '。這次改用 Gemini。'; },
           validate(text) {
             const parsed = parseAIReply(text);
@@ -1450,13 +1574,146 @@
       return [part('year'), part('month'), part('day')].join('-');
     }
 
+    function openImageDatabase() {
+      if (!imageDatabasePromise) {
+        imageDatabasePromise = new Promise((resolve, reject) => {
+          const request = indexedDB.open('studio-images', 1);
+          request.onupgradeneeded = () => {
+            if (!request.result.objectStoreNames.contains('imgs')) request.result.createObjectStore('imgs');
+          };
+          request.onerror = () => reject(request.error);
+          request.onblocked = () => { document.getElementById('image-warehouse').textContent = '圖片倉庫正在等待其他分頁關閉。'; };
+          request.onsuccess = () => {
+            request.result.onversionchange = () => { request.result.close(); imageDatabasePromise = null; };
+            resolve(request.result);
+          };
+        }).catch(error => { imageDatabasePromise = null; throw error; });
+      }
+      return imageDatabasePromise;
+    }
+
+    async function imageStoreOperation(mode, action) {
+      const database = await openImageDatabase();
+      return new Promise((resolve, reject) => {
+        const transaction = database.transaction('imgs', mode);
+        const request = action(transaction.objectStore('imgs'));
+        transaction.oncomplete = () => resolve(request.result);
+        transaction.onerror = () => reject(transaction.error || request.error);
+        transaction.onabort = () => reject(transaction.error || new Error('圖片倉庫寫入中止'));
+      });
+    }
+
+    async function storeImage(picture) {
+      if (!/^data:image\//.test(picture.dataUrl || '')) throw new Error('圖片資料無效');
+      // 同一張舊圖在草稿與多篇存檔中共用同一個 ID，搬移重試也不會重複建立。
+      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(picture.dataUrl));
+      const id = 'img-' + Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+      await imageStoreOperation('readwrite', store => store.put(picture.dataUrl, id));
+      picture.id = id;
+      return picture;
+    }
+
+    function imageReference(picture) {
+      if (!picture.id) {
+        if (/^data:image\//.test(picture.dataUrl || '')) throw new Error('圖片尚未存進倉庫');
+        return picture; // 原有影片附件維持原本的儲存方式。
+      }
+      const { dataUrl, ...reference } = picture;
+      return reference;
+    }
+
+    async function migrateSnapshot(data) {
+      const migrate = async picture => {
+        if (/^data:image\//.test(picture?.dataUrl || '')) return imageReference(await storeImage({ ...picture }));
+        return picture;
+      };
+      return { ...data,
+        postPictures: await Promise.all((data.postPictures || []).map(migrate)),
+        materials: { ...data.materials, media: await Promise.all((data.materials?.media || []).map(migrate)) }
+      };
+    }
+
+    async function hydrateSnapshot(data) {
+      const hydrate = async picture => {
+        if (!picture?.id) return picture;
+        const dataUrl = await imageStoreOperation('readonly', store => store.get(picture.id));
+        if (typeof dataUrl !== 'string') throw new Error('圖片倉庫找不到圖片：' + picture.name);
+        return { ...picture, dataUrl };
+      };
+      return { ...data,
+        postPictures: await Promise.all((data.postPictures || []).map(hydrate)),
+        materials: { ...data.materials, media: await Promise.all((data.materials?.media || []).map(hydrate)) }
+      };
+    }
+
+    async function migrateStoredImages() {
+      for (const key of [AUTOSAVE_KEY, POSTS_KEY, STORAGE_KEY]) {
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
+        const data = JSON.parse(raw);
+        const migrated = key === POSTS_KEY
+          ? { ...data, posts: await Promise.all(data.posts.map(migrateSnapshot)) }
+          : await migrateSnapshot(data);
+        // 圖片交易完成後才改索引；其他分頁改過資料就保留，避免覆蓋。
+        if (localStorage.getItem(key) !== raw) throw new Error('另一個分頁更新了存檔，請重新整理');
+        localStorage.setItem(key, JSON.stringify(migrated));
+      }
+    }
+
+    async function deleteUnusedImage(id) {
+      if (!id) return;
+      try {
+        const uses = data => [...(data?.postPictures || []), ...(data?.materials?.media || [])].some(picture => picture.id === id);
+        if (postPictures.some(p => p.id === id) || mediaFiles.some(p => p.id === id)) return;
+        if (readPosts().some(uses)) return;
+        for (const key of [AUTOSAVE_KEY, STORAGE_KEY]) {
+          const raw = localStorage.getItem(key);
+          if (raw && uses(JSON.parse(raw))) return;
+        }
+        await imageStoreOperation('readwrite', store => store.delete(id));
+        renderWarehouseStats();
+      } catch {
+        document.getElementById('image-warehouse').textContent = '縮圖已移除，但倉庫清理未完成，圖片仍保留。';
+      }
+    }
+
+    async function renderWarehouseStats() {
+      const version = ++warehouseStatsVersion;
+      try {
+        const count = await imageStoreOperation('readonly', store => store.count());
+        const estimate = await navigator.storage?.estimate?.();
+        if (version !== warehouseStatsVersion) return;
+        document.getElementById('image-warehouse').textContent = '圖片倉庫：' + count + ' 張，'
+          + (typeof estimate?.usage === 'number' ? '這個網站約用 ' + (estimate.usage / 1024 ** 2).toFixed(2) + ' MB' : '瀏覽器未提供網站用量');
+      } catch {
+        if (version === warehouseStatsVersion) document.getElementById('image-warehouse').textContent = '圖片倉庫無法讀取，請確認瀏覽器允許儲存資料。';
+      }
+    }
+
+    async function initializeWarehouse() {
+      document.body.inert = true;
+      try {
+        await openImageDatabase();
+        await migrateStoredImages();
+        await restoreWorkspace();
+        warehouseReady = true;
+        initializing = false;
+        renderPictureStorage();
+      } catch {
+        setStatus('圖片倉庫未能完成載入或搬移。原有圖片資料已保留，請重新整理後再試；暫停存檔以免覆蓋。');
+      } finally {
+        document.body.inert = false;
+      }
+    }
+
     function snapshot() {
       drafts[activePlatform] = editor.value;
       const now = new Date().toISOString();
       return {
         version: 2, id: currentPostId, createdAt: currentCreatedAt, status: currentPostStatus,
         name: taiwanDate(now) + '＋' + (document.getElementById('material-' + MATERIAL_FIELDS[0].id).value.trim() || '未填日期'),
-        savedAt: now, materials: { ...materialValues(), media: mediaFiles },
+        savedAt: now, materials: { ...materialValues(), media: mediaFiles.map(imageReference) },
+        postPictures: postPictures.map(imageReference), mainPictureIndex, pictureText: { ...pictureText }, imagePrompt: document.getElementById('image-prompt').value,
         drafts: { ...drafts }, activePlatform, aiQuestions,
         helperHistory: normalizeHelperHistory(helperHistory), previousDrafts: previousDrafts ? { ...previousDrafts } : null
       };
@@ -1474,10 +1731,318 @@
 
     function writePosts(posts) {
       localStorage.setItem(POSTS_KEY, JSON.stringify({ version: 1, posts }));
+      renderPictureStorage();
+    }
+
+    function renderPictureStorage(failed = pictureStorageFailed) {
+      renderWarehouseStats();
+      pictureStorageFailed = failed;
+      const label = document.getElementById('picture-storage');
+      label.classList.toggle('ai-error', failed);
+      if (failed) {
+        label.textContent = '⚠️ 抽屜滿了，剛剛的沒存到！';
+        return;
+      }
+      try {
+        let bytes = 0;
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key !== null) bytes += 2 * (key.length + (localStorage.getItem(key) || '').length);
+        }
+        label.textContent = `瀏覽器的抽屜：已用 ${(bytes / 1024 ** 2).toFixed(2)} MB`;
+      } catch {
+        label.textContent = '無法讀取瀏覽器的抽屜（localStorage）。';
+      }
+    }
+
+    function renderPostPictures() {
+      const list = document.getElementById('picture-list');
+      list.replaceChildren();
+      postPictures.forEach((picture, index) => {
+        const thumb = element('div', 'picture-thumb');
+        const select = element('button', 'picture-select');
+        select.type = 'button';
+        select.setAttribute('aria-label', '選為主圖：' + picture.name);
+        select.setAttribute('aria-pressed', String(index === mainPictureIndex));
+        const img = element('img');
+        img.src = picture.dataUrl;
+        img.alt = picture.name;
+        select.append(img);
+        select.addEventListener('click', () => {
+          mainPictureIndex = index;
+          list.querySelectorAll('.picture-select').forEach((button, i) => button.setAttribute('aria-pressed', String(i === index)));
+          updateMediaPreview();
+          autoSaveWorkspace();
+        });
+        const remove = element('button', 'picture-remove', '×');
+        remove.type = 'button';
+        remove.setAttribute('aria-label', '刪除：' + picture.name);
+        remove.addEventListener('click', async () => {
+          const removed = postPictures[index];
+          postPictures.splice(index, 1);
+          if (index < mainPictureIndex) mainPictureIndex--;
+          mainPictureIndex = Math.max(0, Math.min(mainPictureIndex, postPictures.length - 1));
+          renderPostPictures();
+          updateMediaPreview();
+          if (autoSaveWorkspace()) await deleteUnusedImage(removed.id);
+        });
+        thumb.append(select, remove);
+        list.append(thumb);
+      });
+    }
+
+    async function drawPostPicture(picture, width, height, overlay) {
+      const image = new Image();
+      image.src = picture.dataUrl;
+      await image.decode();
+      if (document.fonts?.ready) await document.fonts.ready;
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight);
+      ctx.drawImage(image, (width - image.naturalWidth * scale) / 2,
+        (height - image.naturalHeight * scale) / 2, image.naturalWidth * scale, image.naturalHeight * scale);
+      if (!overlay.text.trim()) return canvas;
+      const css = getComputedStyle(document.documentElement);
+      const fontSize = width * ({ small: .04, medium: .055, large: .075 }[overlay.size]);
+      ctx.font = '700 ' + fontSize + 'px ' + getComputedStyle(document.body).fontFamily;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const limit = width * .84;
+      const lines = [];
+      let line = '';
+      for (const character of Array.from(overlay.text.replace(/\r/g, ''))) {
+        if (character === '\n') { lines.push(line); line = ''; continue; }
+        if (line && ctx.measureText(line + character).width > limit) { lines.push(line); line = ''; }
+        line += character;
+      }
+      lines.push(line);
+      if (lines.length > 3) {
+        lines.length = 3;
+        while (lines[2] && ctx.measureText(lines[2] + '…').width > limit) lines[2] = Array.from(lines[2]).slice(0, -1).join('');
+        lines[2] += '…';
+      }
+      const lineHeight = fontSize * 1.35;
+      const padding = fontSize * .4;
+      const boxHeight = lines.length * lineHeight + padding * 2;
+      const centerY = overlay.position === 'top' ? height * .08 + boxHeight / 2
+        : overlay.position === 'middle' ? height / 2 : height * .92 - boxHeight / 2;
+      if (overlay.style !== 'shadow') {
+        const boxWidth = Math.min(width, Math.max(...lines.map(text => ctx.measureText(text).width)) + padding * 2);
+        ctx.fillStyle = css.getPropertyValue(overlay.style === 'black' ? '--picture-black-panel' : '--picture-white-panel').trim();
+        ctx.beginPath();
+        ctx.roundRect((width - boxWidth) / 2, centerY - boxHeight / 2, boxWidth, boxHeight, fontSize * .25);
+        ctx.fill();
+      } else {
+        ctx.shadowColor = css.getPropertyValue('--picture-shadow').trim();
+        ctx.shadowBlur = fontSize * .18;
+        ctx.shadowOffsetY = fontSize * .06;
+      }
+      ctx.fillStyle = css.getPropertyValue(overlay.style === 'brand' ? '--brand' : '--paper').trim();
+      lines.forEach((text, index) => ctx.fillText(text, width / 2, centerY + (index - (lines.length - 1) / 2) * lineHeight));
+      return canvas;
+    }
+
+    async function downloadPostPicture() {
+      const main = postPictures[mainPictureIndex];
+      const status = document.getElementById('picture-render-status');
+      if (!main) { status.textContent = '請先上傳或生成一張圖片。'; return; }
+      const selected = SIZES.find(size => size.id === pictureText.downloadSize) || SIZES[0];
+      const [width, height] = selected.size || PIC_SIZE[activePlatform];
+      const name = selected.size ? selected.name : activePlatform.toUpperCase();
+      try {
+        const canvas = await drawPostPicture(main, width, height, { ...pictureText });
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        if (!blob) throw new Error('無法輸出');
+        const url = URL.createObjectURL(blob);
+        const link = element('a');
+        link.href = url;
+        link.download = `${BRAND.name}_${name}_${width}x${height}.png`;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+        status.textContent = '已下載 PNG。';
+      } catch { status.textContent = '下載失敗，請再試一次。'; }
+    }
+
+    function renderImageUsage() {
+      const u = dailyAIUsage().images;
+      document.getElementById('image-usage').textContent = u
+        ? '這張' + (u.lastCost === null ? '費用未提供' : '約 ' + aiMoney(u.lastCost))
+          + '｜今天生了 ' + u.count + ' 張 約 ' + aiMoney(u.cost) + (u.unpriced ? '（部分費用未提供）' : '')
+        : '今天生了 0 張 約 $0';
+    }
+
+    async function imaginePicture() {
+      if (aiWriting || imageGenerating) return;
+      const status = document.getElementById('imagine-status');
+      status.className = 'work-status';
+      if (!editor.value.trim()) { status.textContent = '先讓 AI 寫貼文'; return; }
+      const platform = activePlatform, postId = currentPostId, original = editor.value;
+      const version = pictureUploadVersion;
+      const input = document.getElementById('image-prompt');
+      const oldPrompt = input.value;
+      const [w, h] = PIC_SIZE[platform];
+      const button = document.getElementById('imagine-picture');
+      setAIBusy(true);
+      button.disabled = true;
+      document.getElementById('generate-picture').disabled = true;
+      status.textContent = '想圖中…';
+      try {
+        const result = await askAI([
+          { role: 'system', content: `你是【${BRAND.name}】的美術指導。使用者會給你一篇社群貼文，請你寫一段給 AI 畫圖用的畫面描述。只描述畫面：主角、場景、構圖、光線、顏色、氣氛，要具體到看得到。照圖片規格寫。畫面裡不要有任何文字、字母、數字、標誌。不要畫名人，不要畫別的品牌的 logo。素材卡和貼文裡沒有的東西，不要自己加進畫面。一律用台灣的繁體中文。只回一段 80～150 字的畫面描述，不要標題、不要解釋。` },
+          { role: 'user', content: ['【圖片規格】', settings.imageSpec || '未填，不自行假設品牌風格。', '【素材卡】', materialCardText(), `【${platform.toUpperCase()} 貼文】`, original, `圖的比例：${w}:${h}`].join('\n\n') }
+        ], { maxTokens: 4000, onFallback(reason) { status.textContent = '⚠️ OpenRouter：' + reason + '。這次改用 Gemini。想圖中…'; } });
+        status.textContent = '想圖：這次用 ' + (result.provider === 'gemini' ? 'Gemini' : 'OpenRouter')
+          + (result.cost === null ? '，費用未提供' : '，約 ' + aiMoney(result.cost))
+          + (result.warning ? '；' + result.warning : '');
+        if (postId !== currentPostId || version !== pictureUploadVersion || platform !== activePlatform || editor.value !== original || input.value !== oldPrompt) {
+          status.textContent += '。內容已變更，未自動生圖。畫面描述：' + result.text;
+          return;
+        }
+        input.value = result.text;
+        autoSaveWorkspace();
+        if (result.warning) { status.textContent += '。請確認描述後再按「🎨 生圖」。'; return; }
+        await generatePicture(true);
+      } catch (error) {
+        status.className = 'work-status ai-error';
+        status.textContent = error.message;
+      } finally {
+        setAIBusy(false);
+        button.disabled = false;
+        document.getElementById('generate-picture').disabled = false;
+      }
+    }
+
+    async function generatePicture(fromImagine = false) {
+      if (imageGenerating) return;
+      if (aiWriting && fromImagine !== true) return;
+      const status = document.getElementById('image-status');
+      status.className = 'work-status ai-error';
+      if (!settings.aiKey) {
+        status.textContent = '生圖要用第一組 OpenRouter 的金鑰（Gemini 的免費金鑰不能生圖）。先用 📤 上傳。';
+        return;
+      }
+      const prompt = document.getElementById('image-prompt').value.trim();
+      if (!prompt) { status.textContent = '先填寫圖片描述（要畫什麼）。'; return; }
+      const postId = currentPostId, version = pictureUploadVersion;
+      const [width, height] = PIC_SIZE[activePlatform] || PIC_SIZE.fb;
+      const gcd = (a, b) => b ? gcd(b, a % b) : a;
+      const divisor = gcd(width, height);
+      const button = document.getElementById('generate-picture');
+      imageGenerating = true;
+      button.disabled = true;
+      button.textContent = '🎨 畫圖中…';
+      status.className = 'work-status';
+      status.textContent = '正在畫圖…';
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 120000);
+      try {
+        const response = await fetch('https://openrouter.ai/api/v1/images', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + settings.aiKey, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: settings.customImageModel || settings.imageModel || IMAGE_MODELS[0],
+            prompt: prompt + '（畫面中不要出現任何文字、字母、數字或標誌。）', aspect_ratio: width / divisor + ':' + height / divisor, resolution: '1K', n: 1 }),
+          signal: controller.signal, credentials: 'omit', redirect: 'error'
+        });
+        const errors = {400:'這個模型不接受這個要求，換一個生圖模型試試',401:'金鑰不對',
+          402:'全班的額度用完了',404:'生圖模型名稱打錯了',429:'太多人同時在用',502:'這張沒畫完（沒有扣錢），再按一次'};
+        if (!response.ok) throw new Error(errors[response.status] || '生圖服務暫時出錯，請稍後再試');
+        const data = await response.json();
+        if (data.error) throw new Error(errors[data.error.code] || '生圖服務暫時出錯');
+        const image = data.data?.[0];
+        if (!image?.b64_json || !/^image\/(png|jpeg|webp)$/i.test(image.media_type || '')) throw new Error('沒有收到可用的圖片，請再試一次');
+        const daily = dailyAIUsage();
+        daily.images ||= { count: 0, cost: 0, unpriced: 0, lastCost: null };
+        const cost = numericUsage(data.usage?.cost);
+        daily.images.count++;
+        daily.images.lastCost = cost;
+        if (cost === null) daily.images.unpriced++; else daily.images.cost += cost;
+        persistAIUsage(daily);
+        renderImageUsage();
+        if (fromImagine === true) document.getElementById('imagine-status').textContent += '\n畫圖：這張' + (cost === null ? '費用未提供' : '約 ' + aiMoney(cost));
+        const binary = atob(image.b64_json);
+        const blob = new Blob([Uint8Array.from(binary, c => c.charCodeAt(0))], {type: image.media_type});
+        const picture = await compressPostPicture(blob);
+        picture.name = 'AI 生圖－' + prompt.slice(0, 30) + '.jpg';
+        if (currentPostId !== postId || pictureUploadVersion !== version) {
+          status.textContent = '你已切換或重新載入貼文，這張圖尚未加入；可從下方另存圖片。';
+          const link = element('a', '', '下載這次生成的圖片');
+          link.href = picture.dataUrl;
+          link.download = picture.name;
+          status.append(link);
+          return;
+        }
+        await storeImage(picture);
+        if (currentPostId !== postId || pictureUploadVersion !== version) return;
+        postPictures.push(picture);
+        mainPictureIndex = postPictures.length - 1;
+        renderPostPictures();
+        updateMediaPreview();
+        const saved = autoSaveWorkspace();
+        status.textContent = saved ? '已加入圖片並設為主圖，已自動暫存。' : '圖片已顯示，但尚未存下來，請查看抽屜提示。';
+      } catch (error) {
+        status.className = 'work-status ai-error';
+        status.textContent = error.name === 'AbortError' ? '等太久' : error instanceof TypeError ? '連不到' : error.message;
+      } finally {
+        clearTimeout(timer);
+        imageGenerating = false;
+        button.disabled = false;
+        button.textContent = '🎨 生圖';
+      }
+    }
+
+    async function compressPostPicture(file) {
+      const url = URL.createObjectURL(file);
+      try {
+        const image = new Image();
+        image.src = url;
+        await image.decode();
+        const scale = Math.min(1, 1080 / Math.max(image.naturalWidth, image.naturalHeight));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+        const context = canvas.getContext('2d', { alpha: false });
+        context.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--paper').trim() || 'white';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        if (!dataUrl.startsWith('data:image/jpeg;base64,')) throw new Error('無法轉成 JPEG');
+        return { name: file.name, dataUrl };
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    }
+
+    async function uploadPostPictures(event) {
+      const files = Array.from(event.target.files || []);
+      event.target.value = '';
+      if (!files.length) return;
+      const version = ++pictureUploadVersion;
+      const button = document.getElementById('upload-pictures');
+      const status = document.getElementById('picture-upload-status');
+      button.disabled = true;
+      status.textContent = '正在縮小圖片…';
+      const added = [];
+      const failed = [];
+      for (const file of files) {
+        try { added.push(await storeImage(await compressPostPicture(file))); }
+        catch { failed.push(file.name); }
+        if (version !== pictureUploadVersion) return;
+      }
+      button.disabled = false;
+      status.textContent = failed.length ? '無法讀取或存進圖片倉庫：' + failed.join('、') : '';
+      if (!added.length) return;
+      postPictures.push(...added);
+      renderPostPictures();
+      updateMediaPreview();
+      autoSaveWorkspace();
     }
 
     function autoSaveWorkspace() {
-      if (initializing) return false;
+      if (initializing || warehouseLoading || !warehouseReady) return false;
       const status = document.getElementById('autosave-status');
       if (mediaReading || mediaReadFailed) {
         status.textContent = mediaReading ? '正在讀取附件，完成後會自動暫存。' : '附件讀取失敗，請重新選取後再存檔。';
@@ -1485,15 +2050,18 @@
       }
       try {
         localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(snapshot()));
+        renderPictureStorage(false);
         status.textContent = '已自動暫存目前編輯內容。';
         return true;
       } catch {
+        renderPictureStorage(true);
         status.textContent = '自動暫存失敗：附件可能太大或瀏覽器儲存空間不足。請縮小附件或先複製文字。原有存檔仍保留。';
         return false;
       }
     }
 
     function saveWorkspace() {
+      if (!warehouseReady || warehouseLoading) { setStatus('圖片倉庫尚未就緒，請稍後再存檔。'); return; }
       if (mediaReading || mediaReadFailed) {
         setStatus(mediaReading ? '附件仍在讀取，請稍後再按存檔。' : '附件讀取失敗，請重新選取後再存檔。');
         return;
@@ -1507,7 +2075,8 @@
         writePosts(posts);
         const autoSaved = autoSaveWorkspace();
         setStatus((existing >= 0 ? '已更新：' : '已存檔：') + data.name + (autoSaved ? '' : '。目前編輯內容的自動暫存未成功，詳見左側提示。'));
-      } catch {
+      } catch (error) {
+        if (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED') renderPictureStorage(true);
         setStatus('存檔失敗：儲存空間不足、附件太大，或存檔清單無法讀取。請先複製文字保留內容；原有存檔未覆蓋。');
       }
     }
@@ -1525,7 +2094,7 @@
         reader.onerror = () => reject(new Error('無法讀取附件'));
         reader.onabort = () => reject(new Error('附件讀取中止'));
         reader.readAsDataURL(file);
-      }))).then(files => {
+      }))).then(files => Promise.all(files.map(file => /^data:image\//.test(file.dataUrl) ? storeImage(file) : file))).then(files => {
         if (version !== mediaReadVersion) return;
         mediaFiles = files;
         previewMediaIndex = 0;
@@ -1588,12 +2157,34 @@
         document.getElementById('material-' + field.id).value = typeof data.materials?.[field.id] === 'string' ? data.materials[field.id] : '';
       });
       mediaFiles = Array.isArray(data.materials?.media) ? data.materials.media.filter(file => file && typeof file.name === 'string' && typeof file.dataUrl === 'string') : [];
+      pictureUploadVersion++;
+      const savedText = data.pictureText || {};
+      pictureText = {
+        text: typeof savedText.text === 'string' ? savedText.text : '',
+        position: ['top', 'middle', 'bottom'].includes(savedText.position) ? savedText.position : 'bottom',
+        size: ['small', 'medium', 'large'].includes(savedText.size) ? savedText.size : 'medium',
+        style: ['brand', 'black', 'shadow'].includes(savedText.style) ? savedText.style : 'brand',
+        downloadSize: SIZES.some(size => size.id === savedText.downloadSize) ? savedText.downloadSize : 'platform'
+      };
+      Object.entries({ text: 'text', position: 'position', size: 'size', style: 'style', downloadSize: 'download-size' }).forEach(([key, id]) => {
+        document.getElementById('picture-' + id).value = pictureText[key];
+      });
+      document.getElementById('image-prompt').value = typeof data.imagePrompt === 'string' ? data.imagePrompt : '';
+      document.getElementById('upload-pictures').disabled = false;
+      document.getElementById('picture-upload-status').textContent = '';
+      const pictures = Array.isArray(data.postPictures) ? data.postPictures : [];
+      const validPicture = picture => typeof picture?.name === 'string' && /^data:image\/jpeg;base64,/.test(picture.dataUrl);
+      postPictures = pictures.filter(validPicture);
+      mainPictureIndex = validPicture(pictures[data.mainPictureIndex])
+        ? pictures.slice(0, data.mainPictureIndex).filter(validPicture).length : 0;
+      renderPostPictures();
       restoreMediaInput();
       editor.value = drafts[activePlatform];
       switchPlatform(PLATFORMS.some(platform => platform.id === data.activePlatform) ? data.activePlatform : PLATFORMS[0].id);
     }
 
-    function openPost(id) {
+    async function openPost(id) {
+      if (!warehouseReady || warehouseLoading) return;
       try {
         const post = readPosts().find(post => post.id === id);
         if (!post) throw new Error('找不到存檔');
@@ -1602,12 +2193,24 @@
           document.getElementById('my-posts-status').textContent = '目前內容尚未成功暫存，請先處理左側提示，再開啟其他貼文。';
           return;
         }
-        applySnapshot(post);
+        warehouseLoading = true;
+        document.body.inert = true;
+        const hydrated = await hydrateSnapshot(await migrateSnapshot(post));
+        const posts = readPosts();
+        const index = posts.findIndex(item => item.id === id);
+        if (index < 0) throw new Error('存檔已刪除');
+        posts[index] = await migrateSnapshot(posts[index]);
+        writePosts(posts);
+        applySnapshot(hydrated);
+        warehouseLoading = false;
         autoSaveWorkspace();
         document.getElementById('my-posts-dialog').close();
         setStatus('已打開：' + post.name);
       } catch {
         document.getElementById('my-posts-status').textContent = '無法打開這篇存檔，原有清單未變更。';
+      } finally {
+        warehouseLoading = false;
+        document.body.inert = false;
       }
     }
 
@@ -1726,6 +2329,7 @@
     }
 
     function newPost() {
+      if (!warehouseReady || warehouseLoading) return;
       // 先成功寫入空白暫存才清空畫面；正式存檔清單不變。
       const blank = { version: 2, id: makePostId(), createdAt: new Date().toISOString(), materials: {}, drafts: {}, activePlatform: PLATFORMS[0].id };
       try { localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(blank)); }
@@ -1737,13 +2341,13 @@
       setStatus('已開始新的一篇，存過的貼文仍在「我的貼文」。');
     }
 
-    function restoreWorkspace() {
+    async function restoreWorkspace() {
       try {
         const raw = localStorage.getItem(AUTOSAVE_KEY);
         if (raw) {
           const data = JSON.parse(raw);
           if (!data || data.version !== 2) throw new Error('暫存格式錯誤');
-          applySnapshot(data);
+          applySnapshot(await hydrateSnapshot(data));
           document.getElementById('autosave-status').textContent = '已還原上次自動暫存的內容。';
           return;
         }
@@ -1753,7 +2357,7 @@
           if (!legacy || legacy.version !== 1) throw new Error('舊版存檔格式錯誤');
           legacy.id = 'legacy-workspace-v1';
           legacy.createdAt = legacy.savedAt || new Date().toISOString();
-          applySnapshot(legacy);
+          applySnapshot(await hydrateSnapshot(legacy));
           const posts = readPosts();
           if (!posts.some(post => post.id === legacy.id)) {
             const migrated = snapshot();
@@ -1771,6 +2375,7 @@
         editor.value = drafts[activePlatform];
         switchPlatform(activePlatform);
         setStatus('無法完整讀取上次存檔，原有資料未覆蓋。請先查看「我的貼文」或保留畫面內容。');
+        throw new Error('無法還原圖片，保留原有存檔');
       }
     }
 
@@ -1828,8 +2433,26 @@
     document.getElementById('close-my-posts-button').addEventListener('click', () => document.getElementById('my-posts-dialog').close());
     document.getElementById('new-post-button').addEventListener('click', newPost);
     window.addEventListener('pagehide', autoSaveWorkspace);
-    restoreWorkspace();
-    initializing = false;
+    document.getElementById('upload-pictures').addEventListener('click', () => document.getElementById('post-picture-input').click());
+    document.getElementById('post-picture-input').addEventListener('change', uploadPostPictures);
+    window.addEventListener('storage', () => renderPictureStorage());
+    document.getElementById('generate-picture').addEventListener('click', generatePicture);
+    document.getElementById('imagine-picture').addEventListener('click', imaginePicture);
+    document.getElementById('image-prompt').addEventListener('input', autoSaveWorkspace);
+    SIZES.forEach(size => {
+      const option = element('option', '', size.name + (size.size ? ' ' + size.size.join('×') : ''));
+      option.value = size.id;
+      document.getElementById('picture-download-size').append(option);
+    });
+    Object.entries({ text: 'text', position: 'position', size: 'size', style: 'style', downloadSize: 'download-size' }).forEach(([key, id]) => {
+      document.getElementById('picture-' + id).addEventListener(key === 'text' ? 'input' : 'change', event => {
+        pictureText[key] = event.target.value;
+        if (key !== 'downloadSize') updateMediaPreview();
+        autoSaveWorkspace();
+      });
+    });
+    document.getElementById('download-picture').addEventListener('click', downloadPostPicture);
+    initializeWarehouse();
   </script>
 </body>
 </html>
