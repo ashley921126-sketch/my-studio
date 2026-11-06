@@ -223,6 +223,16 @@
     .work-status { margin: 10px 0 0; min-height: 24px; color: var(--brand-dark); font-size: 12px; }
     .prompt-dialog { width: min(760px, calc(100% - 32px)); max-height: 90vh; padding: 24px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); color: var(--ink); }
     .prompt-dialog::backdrop { background: var(--shadow); }
+    #menu-dialog { width: min(880px, calc(100% - 24px)); }
+    .menu-settings, .menu-row { display:grid; gap:8px; align-items:end; margin-bottom:10px; }
+    .menu-settings { grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .menu-row { grid-template-columns:2em .6fr 1.4fr 1fr 1.6fr; padding-bottom:9px; border-bottom:1px solid var(--line); }
+    .menu-row label,.menu-settings label { min-width:0; font-size:13px; }
+    #menu-preview { display:block; width:min(100%,510px); height:auto; margin:16px auto; }
+    #menu-dialog .menu-error { color:var(--danger); white-space:pre-line; }
+    #phone-menu { flex:none; background:var(--paper); text-align:center; font-size:12px; }
+    #phone-menu canvas { display:block; width:100%; height:auto; }
+    @media(max-width:650px){.menu-settings,.menu-row {grid-template-columns:repeat(2,minmax(0,1fr));}.menu-row strong{grid-column:1/-1}}
     .prompt-dialog p { color: var(--muted); font-size: 13px; }
     .prompt-dialog a { color: var(--brand-dark); }
     #composed-prompt { height: 45vh; margin-top: 16px; font-size: 13px; }
@@ -299,6 +309,7 @@
       <span class="edition">小幫手的寫文空間</span>
       <button class="settings-button" id="settings-button" type="button">⚙ 設定</button>
       <button class="settings-button" id="my-posts-button" type="button">📁 我的貼文</button>
+      <button class="settings-button" id="menu-open" type="button">📋 圖文選單</button>
       <button class="settings-button" id="new-post-button" type="button">＋ 新的一篇</button>
     </div>
   </header>
@@ -412,6 +423,7 @@
             <div class="phone-title" id="phone-title">FB 貼文預覽</div>
             <div class="preview-feed" id="preview-feed" aria-label="貼文即時預覽"></div>
             <div class="phone-nav" id="phone-nav" aria-hidden="true"></div>
+            <div id="phone-menu" hidden><div id="phone-menu-label"></div><canvas id="phone-menu-image" aria-label="LINE 圖文選單"></canvas></div>
             <div class="home-indicator" aria-hidden="true"></div>
           </div>
         </div>
@@ -420,6 +432,19 @@
     </aside>
   </main>
   <input id="ig-photo-input" type="file" accept="image/*" aria-label="選取一張 IG 預覽照片">
+  <dialog class="prompt-dialog" id="menu-dialog" aria-labelledby="menu-title">
+    <h2 id="menu-title">📋 圖文選單</h2>
+    <div class="menu-settings">
+      <label>版型<select id="menu-layout"></select></label>
+      <label>底色<select id="menu-bg"><option value="brand">品牌主色</option><option value="white">白色</option><option value="photo">這篇的主圖加深一點</option></select></label>
+      <label>選單列的字<input id="menu-bar" placeholder="選單"></label>
+    </div>
+    <div id="menu-rows"></div>
+    <canvas id="menu-preview" aria-label="圖文選單預覽"></canvas>
+    <p id="menu-errors" class="menu-error" role="status"></p>
+    <div class="editor-actions"><button id="menu-download" class="action-button" type="button">⬇ 下載選單圖</button><button id="menu-copy" class="action-button secondary" type="button">📋 複製設定表</button><button id="menu-close" class="action-button secondary" type="button">關閉</button></div>
+    <p id="menu-status" role="status"></p><textarea id="menu-manual-copy" aria-label="圖文選單設定表" readonly hidden></textarea>
+  </dialog>
   <dialog class="prompt-dialog" id="review-ai-dialog" aria-labelledby="review-ai-title">
     <h2 id="review-ai-title">🔍 檢查官報告</h2>
     <p>依按下「檢查官」時的貼文與素材審核；報告不會修改貼文。❌ 紅底、⚠️ 黃底。</p>
@@ -510,6 +535,15 @@
     const IMAGE_MODELS = ['bytedance-seed/seedream-5-0-flash', 'qwen/qwen-image-2.1-turbo', 'qwen/qwen-image-3', 'bytedance-seed/seedream-5-0-pro', 'google/gemini-3.1-flash-lite-image'];
     let imageGenerating = false;
     const PIC_SIZE = { fb: [1080, 1080], ig: [1080, 1350], line: [1040, 1040], threads: [1080, 1350] };
+    const MENUS = [
+      { id:'large6', name:'大型 6 格（上 3 下 3）', w:2500, h:1686, cols:3, rows:2 },
+      { id:'large4', name:'大型 4 格（上 2 下 2）', w:2500, h:1686, cols:2, rows:2 },
+      { id:'large1', name:'大型 1 格', w:2500, h:1686, cols:1, rows:1 },
+      { id:'small3', name:'小型 3 格（左中右）', w:2500, h:843, cols:3, rows:1 },
+      { id:'small2', name:'小型 2 格（左右）', w:2500, h:843, cols:2, rows:1 },
+      { id:'small1', name:'小型 1 格', w:2500, h:843, cols:1, rows:1 }
+    ];
+    const MENU_KEY = 'songfeng-line-rich-menu-v1';
     const SIZES = [
       { id: 'platform', name: '跟著平台', size: null },
       { id: 'square', name: '方形', size: [1080, 1080] },
@@ -731,6 +765,8 @@
       updatePreviewText();
       updateMediaPreview();
       feed.scrollTop = 0;
+      document.getElementById('phone-menu').hidden = activePlatform !== 'line';
+      if (activePlatform === 'line') refreshMenu();
     }
 
     function updatePreviewText() {
@@ -1546,8 +1582,7 @@
         const helper = document.createElement('textarea');
         helper.value = text;
         helper.setAttribute('aria-label', '準備複製的內容');
-        const host = document.getElementById('prompt-dialog').open
-          ? document.getElementById('prompt-dialog') : document.body;
+        const host = statusNode.closest('dialog[open]') || document.body;
         host.append(helper);
         helper.select();
         let copied = false;
@@ -1663,6 +1698,7 @@
     async function deleteUnusedImage(id) {
       if (!id) return;
       try {
+        if (JSON.parse(localStorage.getItem(MENU_KEY) || '{}').imageId === id) return;
         const uses = data => [...(data?.postPictures || []), ...(data?.materials?.media || [])].some(picture => picture.id === id);
         if (postPictures.some(p => p.id === id) || mediaFiles.some(p => p.id === id)) return;
         if (readPosts().some(uses)) return;
@@ -2452,6 +2488,239 @@
       });
     });
     document.getElementById('download-picture').addEventListener('click', downloadPostPicture);
+    const menuEl = id => document.getElementById('menu-' + id);
+    const menuChars = text => typeof Intl.Segmenter === 'function'
+      ? Array.from(new Intl.Segmenter('zh-Hant', {granularity:'grapheme'}).segment(text), part => part.segment)
+      : Array.from(text);
+    function readMenu() {
+      let saved = {};
+      try { saved = JSON.parse(localStorage.getItem(MENU_KEY)) || {}; } catch {}
+      const defaults = [
+        ['🏡','看房型'], ['🌿','小農選物'], ['💬','詢問住宿']
+      ];
+      return {
+        layout: MENUS.some(m => m.id === saved.layout) ? saved.layout : 'small3',
+        bg: ['brand','white','photo'].includes(saved.bg) ? saved.bg : 'brand',
+        imageId: typeof saved.imageId === 'string' ? saved.imageId : '',
+        bar: typeof saved.bar === 'string' ? menuChars(saved.bar).slice(0,14).join('') : '選單',
+        cells: Array.from({length:6}, (_, index) => {
+          const c = saved.cells?.[index] || {};
+          return { icon: menuChars(String(c.icon ?? defaults[index]?.[0] ?? ''))[0] || '',
+            label: menuChars(String(c.label ?? defaults[index]?.[1] ?? '')).slice(0,12).join(''),
+            action: ['text','url','none'].includes(c.action) ? c.action : 'text',
+            value: typeof c.value === 'string' ? c.value : '' };
+        })
+      };
+    }
+    let richMenu = readMenu();
+    let menuRender = 0, menuPhotoId = '', menuPhotoPromise;
+    function menuLayout() { return MENUS.find(layout => layout.id === richMenu.layout); }
+    function menuPosition(layout, index) {
+      const horizontal = ({1:[''],2:['左','右'],3:['左','中','右']})[layout.cols][index % layout.cols];
+      if (layout.rows === 1) return horizontal || '全幅';
+      return horizontal + (index < layout.cols ? '上' : '下');
+    }
+    function menuIssues() {
+      const layout = menuLayout();
+      const cells = richMenu.cells.slice(0,layout.cols * layout.rows);
+      const errors = [];
+      if (cells.every(cell => cell.action === 'none')) errors.push('請至少為一格設定「送出文字」或「開網址」。');
+      cells.forEach((cell,i) => {
+        const letter = String.fromCharCode(65+i);
+        if (!cell.label.trim() && !cell.icon.trim()) errors.push(letter + ' 格請填文字或圖示。');
+        if (cell.action === 'url') {
+          let valid = false;
+          try { valid = cell.value.trim().startsWith('https://') && Boolean(new URL(cell.value.trim()).hostname); } catch {}
+          if (!valid) errors.push(letter + ' 格請填寫以 https:// 開頭的完整網址。');
+        }
+        if (cell.action === 'text' && !(cell.value.trim() || cell.label.trim())) errors.push(letter + ' 格請填寫要送出的文字。');
+      });
+      if (richMenu.bg === 'photo' && !richMenu.imageId) errors.push('請先在「這篇的圖」選一張主圖，再選擇圖片底色。');
+      return errors;
+    }
+    function menuReport() {
+      const layout = menuLayout();
+      const lines = ['版型：' + layout.name + ' ' + layout.w + '×' + layout.h, '選單列的字：' + (richMenu.bar.trim() || '選單')];
+      richMenu.cells.slice(0,layout.cols * layout.rows).forEach((cell,i) => {
+        const value = cell.value.trim() || cell.label.trim();
+        const action = cell.action === 'text' ? '文字「' + value + '」' : cell.action === 'url' ? '開網址「' + value + '」' : '不設定';
+        lines.push(String.fromCharCode(65+i) + '（' + menuPosition(layout,i) + '）' + [cell.icon,cell.label].filter(Boolean).join(' ') + ' → ' + action);
+      });
+      return lines.join('\n');
+    }
+    function menuPhoto(id) {
+      if (menuPhotoId !== id || !menuPhotoPromise) {
+        menuPhotoId = id;
+        menuPhotoPromise = (async () => {
+          const url = await imageStoreOperation('readonly', store => store.get(id));
+          if (!url) throw new Error('找不到選單底圖，請重新選擇底色。');
+          const image = new Image();
+          image.src = url;
+          await image.decode();
+          return image;
+        })();
+      }
+      return menuPhotoPromise;
+    }
+    async function drawMenu(width) {
+      const layout = menuLayout();
+      const {bg, imageId} = richMenu;
+      const cells = richMenu.cells.slice(0,layout.cols * layout.rows).map(cell => ({...cell}));
+      const photo = bg === 'photo' && imageId ? await menuPhoto(imageId) : null;
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = Math.round(layout.h * width / layout.w);
+      const ctx = canvas.getContext('2d');
+      ctx.scale(width/layout.w,canvas.height/layout.h);
+      const css = getComputedStyle(document.documentElement);
+      const brand = css.getPropertyValue('--brand').trim();
+      const white = css.getPropertyValue('--paper').trim();
+      const ink = bg === 'white' ? brand : white;
+      ctx.fillStyle = bg === 'white' ? white : brand;
+      ctx.fillRect(0,0,layout.w,layout.h);
+      if (photo) {
+        const scale = Math.max(layout.w/photo.naturalWidth,layout.h/photo.naturalHeight);
+        const w = photo.naturalWidth*scale, h = photo.naturalHeight*scale;
+        ctx.drawImage(photo,(layout.w-w)/2,(layout.h-h)/2,w,h);
+        ctx.fillStyle = css.getPropertyValue('--picture-black-panel').trim();
+        ctx.fillRect(0,0,layout.w,layout.h);
+      }
+      const cw = layout.w/layout.cols, ch = layout.h/layout.rows;
+      ctx.strokeStyle = ink; ctx.globalAlpha = .65; ctx.lineWidth = 4;
+      ctx.beginPath();
+      for (let x=1;x<layout.cols;x++) { ctx.moveTo(x*cw,0); ctx.lineTo(x*cw,layout.h); }
+      for (let y=1;y<layout.rows;y++) { ctx.moveTo(0,y*ch); ctx.lineTo(layout.w,y*ch); }
+      ctx.stroke(); ctx.globalAlpha = 1;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = ink;
+      const face = getComputedStyle(document.body).fontFamily;
+      cells.forEach((cell,i) => {
+        const cx = (i%layout.cols+.5)*cw, cy = (Math.floor(i/layout.cols)+.5)*ch;
+        const size = Math.min(cw*.135,ch*.15), iconSize = Math.min(cw,ch)*.32;
+        ctx.font = '700 '+size+'px '+face;
+        const lines = [];
+        let line = '';
+        for (const char of menuChars(cell.label.trim())) {
+          if (line && ctx.measureText(line+char).width > cw*.84) { lines.push(line); line = ''; }
+          line += char;
+        }
+        if (line) lines.push(line);
+        const shown = lines.slice(0,2);
+        if (lines.length>2) shown[1] += '…';
+        const gap = cell.icon && shown.length ? size*.38 : 0;
+        let y = cy-((cell.icon ? iconSize : 0)+gap+shown.length*size*1.18)/2;
+        if (cell.icon) {
+          ctx.font = iconSize+'px "Segoe UI Emoji", '+face;
+          ctx.fillText(cell.icon,cx,y+iconSize/2); y+=iconSize+gap;
+        }
+        ctx.font = '700 '+size+'px '+face;
+        shown.forEach(text => {ctx.fillText(text,cx,y+size*.59,cw*.84); y+=size*1.18;});
+      });
+      return canvas;
+    }
+    async function refreshMenu() {
+      const version = ++menuRender;
+      menuEl('errors').textContent = menuIssues().join('\n');
+      document.getElementById('phone-menu-label').textContent = (richMenu.bar.trim() || '選單') + ' ▾';
+      if (!menuEl('dialog').open && activePlatform !== 'line') return;
+      try {
+        const image = await drawMenu(800);
+        if (version !== menuRender) return;
+        for (const target of [menuEl('preview'),document.getElementById('phone-menu-image')]) {
+          target.width=image.width; target.height=image.height;
+          target.getContext('2d').drawImage(image,0,0);
+        }
+      } catch {
+        if (version === menuRender) {
+          menuPhotoPromise = null;
+          menuEl('errors').textContent += '\n無法載入圖片底色，請重新選擇。';
+        }
+      }
+    }
+    function persistMenu() {
+      menuEl('manual-copy').hidden = true;
+      menuEl('status').textContent = '';
+      try { localStorage.setItem(MENU_KEY,JSON.stringify(richMenu)); }
+      catch { menuEl('status').textContent = '選單暫存失敗，請確認瀏覽器儲存空間。'; }
+      refreshMenu();
+    }
+    function menuRows() {
+      const host = menuEl('rows'), layout = menuLayout();
+      host.replaceChildren();
+      richMenu.cells.slice(0,layout.cols*layout.rows).forEach((cell,i) => {
+        const row = element('div','menu-row');
+        const letter = String.fromCharCode(65+i);
+        row.append(element('strong','',letter));
+        for (const [key,title] of [['icon','圖示'],['label','格子上的字'],['action','按了做什麼'],['value','內容']]) {
+          const label = element('label','',title);
+          const input = element(key === 'action' ? 'select' : 'input');
+          if (key === 'action') {
+            for (const [value,name] of [['text','送出文字'],['url','開網址'],['none','不設定']]) input.append(new Option(name,value));
+          }
+          input.setAttribute('aria-label',letter+' 格 '+title);
+          input.value=cell[key];
+          const update=event=>{
+            if (event.isComposing) return;
+            const max = key==='icon'?1:key==='label'?12:0;
+            if (max) input.value=menuChars(input.value).slice(0,max).join('');
+            cell[key]=input.value;
+            persistMenu();
+          };
+          input.addEventListener(key==='action'?'change':'input',update);
+          if(key!=='action') input.addEventListener('compositionend',update);
+          label.append(input);row.append(label);
+        }
+        host.append(row);
+      });
+    }
+    function initializeMenu() {
+      MENUS.forEach(layout => menuEl('layout').append(new Option(layout.name,layout.id)));
+      menuEl('open').onclick = () => {
+        menuEl('layout').value=richMenu.layout; menuEl('bg').value=richMenu.bg; menuEl('bar').value=richMenu.bar;
+        menuRows(); menuEl('dialog').showModal(); refreshMenu();
+      };
+      menuEl('close').onclick = () => menuEl('dialog').close();
+      menuEl('layout').onchange = event => {richMenu.layout=event.target.value; menuRows(); persistMenu();};
+      menuEl('bg').onchange = event => {
+        richMenu.bg=event.target.value;
+        richMenu.imageId=richMenu.bg==='photo' ? postPictures[mainPictureIndex]?.id || '' : '';
+        persistMenu();
+      };
+      const updateBar=event=>{
+        if(event.isComposing) return;
+        richMenu.bar=menuChars(event.target.value).slice(0,14).join('');
+        event.target.value=richMenu.bar; persistMenu();
+      };
+      menuEl('bar').oninput=updateBar;
+      menuEl('bar').oncompositionend=updateBar;
+      menuEl('copy').onclick=async()=>{
+        if(menuIssues().length) {refreshMenu();return;}
+        const report=menuReport();
+        if (!await copyText(report,menuEl('status'))) {
+          menuEl('manual-copy').hidden=false; menuEl('manual-copy').value=report; menuEl('manual-copy').select();
+        }
+      };
+      menuEl('download').onclick=async()=>{
+        if(menuIssues().length) {refreshMenu();return;}
+        const button=menuEl('download'),status=menuEl('status');
+        button.disabled=true;
+        try {
+          const canvas=await drawMenu(menuLayout().w);
+          for (const quality of [.92,.85,.78,.7,.6,.5]) {
+            const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',quality));
+            if (!blob || blob.size>1000000) continue;
+            const url=URL.createObjectURL(blob);
+            const link=element('a');
+            link.href=url;link.download=BRAND.name+'_圖文選單_'+canvas.width+'x'+canvas.height+'.jpg';
+            document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);
+            status.textContent='下載好了：'+canvas.width+'×'+canvas.height+'，'+(blob.size/1000000).toFixed(3)+' MB';
+            return;
+          }
+          throw new Error('圖片超過 1 MB，請選擇較簡單的底圖或純色底。');
+        } catch(error) {menuEl('errors').textContent=error.message || '無法下載選單圖，請再試一次。';}
+        finally {button.disabled=false;}
+      };
+    }
+    initializeMenu();
     initializeWarehouse();
   </script>
 </body>
