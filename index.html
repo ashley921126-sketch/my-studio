@@ -877,7 +877,7 @@
         const picture = element('img', 'post-picture-preview');
         const [width, height] = PIC_SIZE[activePlatform] || PIC_SIZE.fb;
         picture.style.aspectRatio = `${width} / ${height}`;
-        picture.src = main.dataUrl;
+        picture.src = main.dataUrl || main.url;
         picture.alt = main.name;
         drawPostPicture(main, width, height, { ...pictureText }).then(canvas => {
           if (renderVersion === pictureRenderVersion) {
@@ -911,10 +911,10 @@
       const file = mediaFiles[previewMediaIndex];
       const frame = element('div', `media-frame media-frame-${activePlatform}`);
       const isImage = String(file.type || '').startsWith('image/')
-        || /^data:image\//i.test(file.dataUrl)
+        || /^data:image\//i.test(file.dataUrl || '')
         || /\.(png|jpe?g|webp|gif|avif|bmp|heic|heif)$/i.test(file.name);
       const media = element(isImage ? 'img' : 'video');
-      media.src = file.dataUrl;
+      media.src = file.dataUrl || file.url;
       if (isImage) {
         media.alt = file.name;
       } else {
@@ -1709,9 +1709,25 @@
     async function hydrateSnapshot(data) {
       const hydrate = async picture => {
         if (!picture?.id) return picture;
-        const dataUrl = await imageStoreOperation('readonly', store => store.get(picture.id));
-        if (typeof dataUrl !== 'string') throw new Error('圖片倉庫找不到圖片：' + picture.name);
-        return { ...picture, dataUrl };
+        const cached = await imageStoreOperation('readonly', store => store.get(picture.id));
+        if (typeof cached === 'string') return { ...picture, dataUrl: cached };
+        if (picture.url) {
+          try {
+            const response = await fetch(picture.url, { credentials: 'omit' });
+            if (!response.ok) throw new Error('圖片下載失敗');
+            const blob = await response.blob();
+            if (!blob.type.startsWith('image/')) throw new Error('下載的不是圖片');
+            const dataUrl = await new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result);
+              reader.onerror = () => reject(reader.error);
+              reader.readAsDataURL(blob);
+            });
+            await imageStoreOperation('readwrite', store => store.put(dataUrl, picture.id));
+            return { ...picture, dataUrl };
+          } catch { return picture; } // 仍可直接用公開網址預覽。
+        }
+        throw new Error('圖片倉庫找不到圖片：' + picture.name);
       };
       return { ...data,
         postPictures: await Promise.all((data.postPictures || []).map(hydrate)),
@@ -1840,7 +1856,7 @@
         select.setAttribute('aria-label', '選為主圖：' + picture.name);
         select.setAttribute('aria-pressed', String(index === mainPictureIndex));
         const img = element('img');
-        img.src = picture.dataUrl;
+        img.src = picture.dataUrl || picture.url;
         img.alt = picture.name;
         select.append(img);
         select.addEventListener('click', () => {
@@ -1868,7 +1884,8 @@
 
     async function drawPostPicture(picture, width, height, overlay) {
       const image = new Image();
-      image.src = picture.dataUrl;
+      if (!picture.dataUrl) image.crossOrigin = 'anonymous';
+      image.src = picture.dataUrl || picture.url;
       await image.decode();
       if (document.fonts?.ready) await document.fonts.ready;
       const canvas = document.createElement('canvas');
@@ -2138,22 +2155,83 @@
     function cloudSaveError(error) {
       const code = String(error?.code || '');
       const message = String(error?.message || '');
+      if (/^(雲端還沒有 images 桶子|雲端不讓你傳圖|圖片上傳失敗)/.test(message)) return message;
       if (code === '42P01' || code === 'PGRST205') return '雲端還沒有 posts 表，到 SQL Editor 貼建表那段按 Run';
       if (code === '42501' || /row.level security/i.test(message)) return '雲端不讓你存，SQL 的權限那段沒跑到';
       return message ? '雲端儲存失敗：' + message : '雲端儲存失敗，請稍後再試';
     }
 
+    function cloudImageError(error) {
+      const message = String(error?.message || '請稍後再試');
+      if (/bucket not found/i.test(message)) return new Error('雲端還沒有 images 桶子，到 SQL Editor 貼圖片那段按 Run');
+      if (/row.level security/i.test(message)) return new Error('雲端不讓你傳圖，SQL 的圖片權限那段沒跑到');
+      return new Error('圖片上傳失敗：' + message);
+    }
+
+    function withPictureUrls(data, urls, savedAt = data.savedAt) {
+      const addUrl = picture => picture?.id && urls.has(picture.id) ? { ...picture, url: urls.get(picture.id) } : picture;
+      return { ...data, savedAt,
+        postPictures: (data.postPictures || []).map(addUrl),
+        materials: { ...data.materials, media: (data.materials?.media || []).map(addUrl) }
+      };
+    }
+
+    function rememberPictureUrls(data, urls) {
+      if (!urls.size) return data;
+      const savedAt = Math.max(Date.now(), savedAtNumber(data) + 1);
+      const updated = withPictureUrls(data, urls, savedAt);
+      const posts = readPosts();
+      const index = posts.findIndex(post => post.id === data.id);
+      if (index >= 0) {
+        posts[index] = withPictureUrls(posts[index], urls, savedAt);
+        writePosts(posts);
+      }
+      if (currentPostId === data.id) {
+        const addUrl = picture => { if (picture.id && urls.has(picture.id)) picture.url = urls.get(picture.id); };
+        postPictures.forEach(addUrl);
+        mediaFiles.forEach(addUrl);
+        autoSaveWorkspace();
+      }
+      return updated;
+    }
+
     async function upsertCloudPost(data, userId) {
-      // 雲端留圖片本體；這台電腦的存檔仍只留圖片 ID。
-      const cloudData = await hydrateSnapshot(data);
+      const images = [...(data.postPictures || []), ...(data.materials?.media || [])]
+        .filter(picture => picture?.id && !picture.url);
+      const urls = new Map();
+      let updated = data;
+      for (const picture of images) {
+        if (urls.has(picture.id)) continue;
+        const source = picture.dataUrl || await imageStoreOperation('readonly', store => store.get(picture.id));
+        if (!source) throw new Error('圖片倉庫找不到圖片：' + picture.name);
+        const response = await fetch(source);
+        const blob = await response.blob();
+        const extensions = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'image/avif': 'avif' };
+        const extension = extensions[blob.type] || 'jpg';
+        const path = userId + '/' + picture.id + '.' + extension;
+        const file = new File([blob], picture.id + '.' + extension, { type: blob.type });
+        const bucket = sb.storage.from('images');
+        const { error: uploadError } = await bucket.upload(path, file, { upsert: true, contentType: file.type });
+        if (uploadError) throw cloudImageError(uploadError);
+        const { data: publicData } = bucket.getPublicUrl(path);
+        if (!publicData?.publicUrl) throw new Error('已傳圖，但無法取得圖片網址');
+        urls.set(picture.id, publicData.publicUrl);
+        updated = rememberPictureUrls(updated, new Map([[picture.id, publicData.publicUrl]]));
+      }
+      // 雲端資料只留圖片 ID 與網址；舊版內嵌圖片也一併轉成參照。
+      const cloudData = { ...updated,
+        postPictures: (updated.postPictures || []).map(imageReference),
+        materials: { ...updated.materials, media: (updated.materials?.media || []).map(imageReference) }
+      };
       const { error } = await sb.from('posts').upsert({
-        id: String(data.id), user_id: userId, data: cloudData,
-        publish_date: data.publishDate || null,
+        id: String(updated.id), user_id: userId, data: cloudData,
+        publish_date: updated.publishDate || null,
         updated_at: new Date().toISOString()
       }, { onConflict: 'user_id,id' });
       if (error) throw error;
-      cloudPostIds.add(String(data.id));
+      cloudPostIds.add(String(updated.id));
       renderPostList();
+      return { uploadedCount: urls.size };
     }
 
     function reportCloudSync(message, error = false) {
@@ -2273,8 +2351,8 @@
         }
         reportCloud('雲端存檔中…');
         try {
-          await upsertCloudPost(data, me.id);
-          reportCloud('☁ 雲端也存了：' + data.name);
+          const result = await upsertCloudPost(data, me.id);
+          reportCloud('☁ 雲端也存了：' + data.name + '（傳了 ' + result.uploadedCount + ' 張圖）');
         } catch (error) {
           reportCloud(cloudSaveError(error) + '。這台電腦有存到，不會不見', true);
         }
@@ -2328,6 +2406,7 @@
       try {
         const transfer = new DataTransfer();
         mediaFiles.forEach(file => {
+          if (!file.dataUrl) return; // 只有雲端網址的圖片仍會顯示，但不重建檔案輸入欄。
           const encoded = file.dataUrl.split(',')[1];
           const bytes = Uint8Array.from(atob(encoded), character => character.charCodeAt(0));
           transfer.items.add(new File([bytes], file.name, { type: file.type, lastModified: file.lastModified }));
@@ -2362,7 +2441,7 @@
       MATERIAL_FIELDS.filter(field => field.type !== 'file').forEach(field => {
         document.getElementById('material-' + field.id).value = typeof data.materials?.[field.id] === 'string' ? data.materials[field.id] : '';
       });
-      mediaFiles = Array.isArray(data.materials?.media) ? data.materials.media.filter(file => file && typeof file.name === 'string' && typeof file.dataUrl === 'string') : [];
+      mediaFiles = Array.isArray(data.materials?.media) ? data.materials.media.filter(file => file && typeof file.name === 'string' && (typeof file.dataUrl === 'string' || typeof file.url === 'string')) : [];
       pictureUploadVersion++;
       const savedText = data.pictureText || {};
       pictureText = {
@@ -2379,7 +2458,7 @@
       document.getElementById('upload-pictures').disabled = false;
       document.getElementById('picture-upload-status').textContent = '';
       const pictures = Array.isArray(data.postPictures) ? data.postPictures : [];
-      const validPicture = picture => typeof picture?.name === 'string' && /^data:image\/jpeg;base64,/.test(picture.dataUrl);
+      const validPicture = picture => typeof picture?.name === 'string' && (/^data:image\/jpeg;base64,/.test(picture.dataUrl || '') || typeof picture.url === 'string');
       postPictures = pictures.filter(validPicture);
       mainPictureIndex = validPicture(pictures[data.mainPictureIndex])
         ? pictures.slice(0, data.mainPictureIndex).filter(validPicture).length : 0;
