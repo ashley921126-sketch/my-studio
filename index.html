@@ -258,6 +258,7 @@
     .post-status-select { width: 100%; padding: 7px; border: 1px solid var(--line); border-radius: 5px; background: var(--paper); color: var(--ink); }
     .saved-post-row { padding: 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); }
     .saved-post-name { margin: 0; font-size: 15px; overflow-wrap: anywhere; }
+    .cloud-badge { display: inline-block; margin-left: 7px; padding: 2px 7px; border-radius: 10px; background: var(--brand-light); color: var(--brand-dark); font-size: 11px; font-weight: normal; vertical-align: middle; }
     .saved-post-row time { display: block; color: var(--muted); font-size: 12px; margin-top: 5px; }
     .saved-post-row .editor-actions { margin-top: 12px; }
     .media-frame { width: 100%; background: var(--soft); overflow: hidden; }
@@ -306,6 +307,7 @@
   <header class="topbar">
     <h1 id="workspace-title">松風民宿 v2｜社群工作台</h1>
     <div class="header-actions">
+      <button class="settings-button" id="login-open" type="button">🔐 登入</button>
       <span class="edition">小幫手的寫文空間</span>
       <button class="settings-button" id="settings-button" type="button">⚙ 設定</button>
       <button class="settings-button" id="my-posts-button" type="button">📁 我的貼文</button>
@@ -324,6 +326,10 @@
         <p>必填共五項；範例僅供參考，請填寫這次的素材。</p>
       </div>
       <form id="material-form" aria-label="貼文素材卡" autocomplete="off"></form>
+      <div class="post-pictures">
+        <label class="editor-label" for="publish-date">📅 預計發佈日</label>
+        <input id="publish-date" type="date">
+      </div>
       <section class="post-pictures" aria-labelledby="post-pictures-title">
         <h3 id="post-pictures-title">🖼 這篇的圖</h3>
         <button class="action-button secondary" id="upload-pictures" type="button">📤 上傳</button>
@@ -371,6 +377,7 @@
         <button class="action-button secondary" id="import-ai-button" type="button">📥 貼回 AI 寫好的</button>
         <p class="field-hint">複製三平台指令並開啟 ChatGPT，貼上送出即可一次取得 FB、LINE、IG 貼文。</p>
         <button class="action-button" id="save-button" type="button">💾 存檔</button>
+        <p class="work-status" id="cloud-save-status" role="status" aria-live="polite"></p>
         <p class="work-status" id="autosave-status" role="status" aria-live="polite"></p>
       </div>
     </section>
@@ -466,6 +473,11 @@
     <h2 id="my-posts-title">我的貼文</h2>
     <p>名稱為「存檔當日日期＋素材卡第一格」，時間以台灣時間顯示。</p>
     <p id="board-summary">草稿、等老闆確認、完成，改狀態後會立即儲存。</p>
+    <div class="editor-actions">
+      <button class="action-button" id="upload-all-posts" type="button">⬆ 全部上傳到雲端</button>
+      <button class="action-button secondary" id="download-cloud-posts" type="button">⬇ 從雲端拿回來</button>
+    </div>
+    <p class="work-status" id="cloud-sync-status" role="status" aria-live="polite"></p>
     <div class="saved-post-list" id="saved-post-list"></div>
     <p class="work-status" id="my-posts-status" role="status" aria-live="polite"></p>
     <div class="editor-actions"><button class="action-button secondary" id="close-my-posts-button" type="button">關閉</button></div>
@@ -516,6 +528,20 @@
     </div>
     <p class="work-status" id="settings-status" role="status" aria-live="polite"></p>
   </dialog>
+  <dialog class="prompt-dialog" id="login-dialog" aria-labelledby="login-title">
+    <h2 id="login-title">🔐 登入</h2>
+    <label class="editor-label" for="login-email">Email</label>
+    <input id="login-email" type="email" autocomplete="email">
+    <label class="editor-label" for="login-password">密碼（至少 6 個字）</label>
+    <input id="login-password" type="password" minlength="6" autocomplete="current-password">
+    <div class="editor-actions">
+      <button class="action-button" id="login-submit" type="button">登入</button>
+      <button class="action-button secondary" id="login-signup" type="button">第一次：註冊</button>
+      <button class="action-button secondary" id="login-signout" type="button">登出</button>
+      <button class="action-button secondary" id="login-close" type="button">關閉</button>
+    </div>
+    <p class="work-status" id="login-status" role="status" aria-live="polite"></p>
+  </dialog>
   <dialog class="prompt-dialog" id="prompt-dialog" aria-labelledby="prompt-title">
     <h2 id="prompt-title">組好的三平台寫文指令</h2>
     <p>已加入設定區儲存的品牌規格、檢查清單與素材，一次要求三平台貼文。貼到 ChatGPT 送出，寫好後再分別貼回對應分頁。附件僅列檔名，需要看圖時請另外附檔。</p>
@@ -530,6 +556,7 @@
   </dialog>
   <noscript>請啟用瀏覽器的 JavaScript，以顯示素材卡欄位及平台按鈕。</noscript>
   <script type="application/json" id="brand-spec-data">"# 松風民宿品牌規格\n\n## 基本資料\n\n| 欄位 | 內容 |\n|---|---|\n| 品牌名稱 | 松風民宿 |\n| 帳號名稱 | FB：已提供粉絲專頁連結，頁面顯示名稱 ❓待補；IG：❓待補；訂房 LINE ID：`nona7688`（顯示名稱及是否為官方帳號 ❓待補） |\n| Facebook | [松風 Facebook（使用者提供）](https://www.facebook.com/p/%E6%9D%BE%E9%A2%A8-61572934135345/) |\n| 主色色碼 | `#90674c` |\n| 我要用的平台 | FB、IG、LINE |\n| 提供內容 | 住宿服務 |\n| 營業日 | 週一至週日 |\n| 地址 | 955臺東縣鹿野鄉龍田村龍馬路95巷17號 |\n| 營業時間 | ❓待補（入住／退房時間不等於全天營業或接待時段） |\n| 入住時間 | 15:00－18:00 |\n| 退房時間 | 11:00 前須退房 |\n| 聯絡方式／訂房管道 | 電話：0987-425-930；訂房 LINE ID：`nona7688`；亦可透過 [Booking](https://www.booking.com/Share-fu4Jfus)、[Agoda](https://www.agoda.com/zh-tw/songfeng-b-b/hotel/taitung-tw.html?cid=1844104&ds=Iw6i47uv3MvZBXkJ) 訂房 |\n| 房價 | 雙人房：每房每晚 NT$2,000；4 人房單床位：每床每晚 NT$700；4 人房整間：每房每晚 NT$2,800 |\n| 幣別與計價 | 新臺幣（NT$），按晚計價；平日、假日與旺季同價 |\n| 得獎紀錄 | ❓待補 |\n\n> 內容來源：松風品牌卡.md，以及使用者於 2026-10-15 補充的 Facebook 連結、地址、電話、訂房 LINE ID、Booking／Agoda 訂房管道及房源連結、房價與入住／退房時間。Facebook、Booking 與 Agoda 頁面本次未能讀取，連結依使用者提供記錄，未據此補寫頁面內容；Booking 與 Agoda 均使用使用者最新提供的連結。小島咖啡範例只供章節、規則與骨架的格式參考。\n> 「品牌卡明載」是原有資料；「建議規則」是為了讓寫作可執行而新增的編輯設定，不代表品牌卡原本有規定。缺少的品牌事實一律標「❓待補」。\n> 新增口氣來源：使用者於 2026-10-15 提供的 3 篇品牌 Facebook 貼文（發文日期未提供）。用於辨識實際口氣，舊文中的營運進度與商品不直接視為現況。\n\n## 1. 品牌口氣（寫具體）\n\n品牌重視自然與地方生活；實際 FB 貼文則由「小幫手」出面聊天，有自嘲、括號插話、家人對話與感謝，不只寫安靜抒情的風景。FB 故事採小幫手口吻；住宿公告仍優先講清楚資訊。\n\n**品牌卡明載的方向：**\n\n- 對象是去台東熱氣球季的遊客、想去台東放鬆的情侶，以及喜愛文青氛圍、大自然與慢活的旅客。\n- 強調民宿特色與在地生活，不以飯店或旅店的一應俱全作為訴求。\n- 不只介紹住宿，也傳達了解在地生活的想法。\n\n**建議規則（新增的編輯設定）：**\n\n- 稱呼讀者以「你」「大家」為主；新稿統一不用「您」「親愛的」「各位貴賓」。原 FB 貼文曾用「您」，因此這是統一編輯的建議，不是原品牌從未使用。\n- FB 故事自稱「小幫手」，談共同心意時可用「我們」；提到經營者用「老闆」，不虛構姓名。IG 若承接小幫手故事可沿用自稱；LINE 公告用「松風」或「我們」。\n- 一句只講一件事；以句號、問號或驚嘆號作為句尾。FB 每句最多 60 字，IG、LINE 每句最多 40 字；超過就拆句。舊文原文引用不受此限。\n- 每段 1～3 句；以空行分段。平台另有限制時，以該平台為準。\n- 每篇只選 1 個主題，例如名字的故事、地方生活或住宿公告。\n- emoji 上限：FB 每篇 5 個，IG 每篇 2 個，LINE 每篇 1 個；都可以不用，不連續排列。這些上限是參考實際貼文後的建議值。\n- 驚嘆號：FB 全篇最多 2 個，可在同一句使用「！！」；IG、LINE 全篇最多 1 個。\n- FB 括號插話最多 4 處，每處最多 15 字；可用「（撥髮）」「（？）」等自嘲，不拿旅客開玩笑。注音諧音或「484」等數字諧音一篇合計最多 1 處，限日常故事，訂房公告不用。\n- 有來源時可以放 1 組家人或老闆對話；沒有逐字資料就改為間接敘述，不編造引號內對白。故事中可以自嘲，再回到對家人、協助者或土地的感謝；不強迫每篇加笑點。\n- 多用品牌卡已有的具體畫面，例如木質空間、龍田的草地與茶田；不自行補寫窗外景色、天氣或現場見聞。\n- 描述適合的旅行方式，例如放慢步調、了解在地；不把對特定旅客的拒絕當成貼文開場。\n- 邀請句每篇最多 1 句，不催促、不倒數；需要訂房資訊時，只放已確認的管道。\n\n**計數方式：**以下字數均計標點、不計空白與換行；網址不計入字數。平台行數以手動換行後的非空白行計，手機自動折行不另計；emoji 的上限包含骨架中的符號。\n\n## 2. 不能用的字\n\n**品牌卡明載，所有新寫貼文都禁用：**\n\n- 狂歡\n- 慶祝\n- 熱鬧\n\n**建議新增的禁用說法：**\n\n- 催促：「快搶」「手刀訂房」「錯過可惜」「最後倒數」。\n- 誇大：「全台第一」「必住」「保證療癒」「百分之百放鬆」。\n- 一應俱全的承諾：「什麼都有」「所有需求都能滿足」「飯店級全套服務」。\n\n不能用的原因是與品牌方向不合或缺少依據，不能換個近義詞繼續作同樣的承諾。\n\n## 3. 不准自己加的東西\n\n- 地址、電話、Facebook 連結與訂房 LINE ID：使用基本資料中的已提供內容。Booking／Agoda 房源連結使用基本資料中的網址。IG 帳號、各平台顯示名稱與其他訂房網址：❓待補；不自行拼出網址。\n- 房價使用已確認的「雙人房每房每晚 NT$2,000」「4 人房單床位每床每晚 NT$700」「4 人房整間每房每晚 NT$2,800」，平日、假日與旺季同價。四人房整間價格由使用者明確提供；不把單床位價格寫成整間房價，也不自行改寫成「起」價。折扣、訂金與取消規則：❓待補。\n- 入住時間為 15:00－18:00，11:00 前須退房。營業具體時段、提前入住與延後退房規則：❓待補；不能把入住時段當成全部接待時段，也不能把「週一至週日」寫成「24 小時服務」。\n- 已知房價項目有雙人房與 4 人房單床位；完整房型、房數、入住人數規則、設施、早餐、交通與接送：❓待補。\n- 得獎、評分、旅客評價、入住人次、經營年數或其他成果數字：❓待補。\n- 熱氣球活動日期、票價、距離、步行或車程：❓待補。品牌卡提到目標旅客，不代表提供活動方案或能從民宿看見熱氣球。\n- 書店、茶飲、咖啡、課程、導覽及店家合作的實際服務內容：❓待補。\n- 舊 FB 文曾提到民宿牌申請、農產品與手作品販售。可作歷史原文參考；目前登記名稱與編號、是否持續販售、品項、庫存及價格：❓待補。不能據此新增現行認證或「現貨供應」承諾。\n- 舊文的「期盼在6月前能夠正式營業」是當時的計畫，日期年份未提供，不作為目前進度或正式開幕日。小幫手上過森林療癒課程的敘述，也不代表民宿提供相關課程；不把舊文中的個人感受改成健康效果保證。\n\n品牌卡的「我們希望這裡成為一處能閱讀、喝茶或咖啡、與人聊聊地方生活的空間」是願景。改寫時保留「希望」或「想讓」的語氣，不寫成「入住附咖啡」「提供茶席」「可預約課程」等現行服務。\n\n品牌卡原文已有的「五月完工」「只住一兩晚」可以保留原意，但不能推算完工年份，也不能把「一兩晚」改寫成最低入住晚數。\n\n「❓待補」用於草稿與規格。正式發布前，必要資訊要補齊；非必要資訊可以整句刪除，不能自行填值。\n\n## 4. 參考貼文（照這篇的感覺寫）\n\n### 4.1 原有品牌卡參考文\n\n以下完整保留品牌卡的範例原文，不是新增服務公告，也不受本規格建議的字數與段落上限限制。新稿學它的敘事感，依各平台骨架調整長度。\n\n```text\n「五月賣松風，人間恐無價。」\n一句在朋友談話中被想起的詩，為松風取了名字；民宿又恰好在五月完工，讓這段緣分有了落腳的地方。\n松風位於鹿野龍田村。我們希望，來到這裡的旅人，能留一點時間認識住宿之外的生活：看看草地與茶田，走進沿途的小店，聽聽在這裡生活的人如何過日子。\n白天，從松風出發，沿著自己的興趣探索地方；夜裡，回到沒有電視與 KTV 的安靜空間，聊聊今天的見聞，或讓自己好好休息。那些途中遇見的人與事，都可以慢慢成為旅行的一部分。\n松風也正朝結合閱讀、品茶與在地選物的空間前進，期待未來與地方有更多連結。讓旅人因住宿來到龍田，也因認識這裡的日常，多一個想再回來的理由。\n\n```\n\n照這篇的感覺寫：先給一個具體起點，再說它與松風的關係，最後用一句邀請收尾。不要只堆「療癒、質感、慢活」等形容詞，也不要每篇都複製同一段故事。\n\n### 4.2 品牌實際 FB 貼文：照這些篇的感覺寫\n\n以下是使用者提供的 3 篇原文。僅拆開篇章、保留段落，將 Facebook emoji 與 hashtag 連結轉成純文字；保留原有用字、錯別字、玩笑與標點，不是新寫的貼文。歷史原文不適用新稿字數限制，也不直接作為當前營運公告。\n\n**範例一：小幫手出場、籌備感謝與小小工商。**學它「先開玩笑，再說不容易，最後感謝」的轉折；商品內容發布前須另確認。\n\n```text\n小幫手又來了（出場率484有點高？）\n被老闆拜（ㄒㄧㄝˊ）託（ㄆㄛˋ）幫他寫一篇文，好吧！誰叫小幫手很容易文思泉湧（撥髮）\n看到老闆從空空的屋子開始，真的很不容易，很多事情親力親為，不像小幫手的才能只會點點手指頭+嘴巴講講話，但我也申請了合法民宿牌出來（甩髮）\n有時要成就一件事情，的確是不簡單，各方面大家的幫忙，不管是老天、父母、身邊的親友團、師傅們、當然怎麼可以忘記小幫手🙋‍♀️…等等，雖然這看起來是一條未知又奇幻、帶點夢想的旅程，但要走過才會知道吧～就像熱氣球起飛，你也不知道它會在哪降落。（若我們預算不夠搭乘熱氣球，但一樣能來台東看看美麗又溫柔的山水喔！）\n總之老闆要表達對大家的感恩🙏也感謝這塊包涵與孕育我們的土地❤️\n最後偷偷小小工商🥹若來台東，小幫手家的農產品，也能在民宿購買到，有少量好吃的自然農法巧克力、桑椹果醬、桑椹發酵液、精油、亞麻手作衣服、手作品…都可以找老闆購買喔🙏\n#鹿野民宿\n#熱氣球\n#歡迎訂房\n```\n\n**範例二：從自己的生活經驗談自然。**學它「先說自己如何改變，再邀請大家感受」的方式；不沿用裝修進度或健康效果說法。\n\n```text\n小幫手來祝大家新年快樂！！\n記得好多年前小幫手來台東的時候，當時的懵懂少女（？）並不知道台東的好與價值，也許有些人覺得奇怪，為什麼要選擇到鄉下生活？經過多年以後，小幫手手握著泥土、親近花草樹木，才懂得人與自然中間的價值是什麼。\n除了這裡沒有都市的擁擠、沒有一開門就見到高高低低的建築物、沒有亮眼的霓虹燈光、冬天沒有霧濛濛的天空…\n這裡有的是新鮮空氣、緩慢的步調、錢的味道不重（？）…小幫手開始發現在自然環境，是我最舒服放鬆的狀態😌進而開始想了解很多關於自然的事情，也因為能感受到自然對我的幫忙，進而去上森林療癒的課程。\n我們就算沒有辦法生活在鄉下，也可以有空隨時到森林中走走，讓副交感神經活絡，可以釋放壓力情緒…好處多多。但這個篇幅還是不要寫太多拉里拉雜的，搞得像自己的粉專一樣😗\n報告一下民宿現在進度還在裝修採購中，我們期盼在6月前能夠正式營業，屆時歡迎大家來感受台東這片黏人的土地❤️\n祝福大家在新的一年平安自在、平心靜氣，保有澄澈寧靜的自己。\n#好事馬上旺，不開心的事馬上忘\n#歡迎來鹿野跳馬\n#民宿現在亂亂的沒什麼好拍，小幫手只好犧牲自己選了最適合（？）馬年的影片。\n```\n\n**範例三：取名與羅漢松的故事。**學它「真實小事＋家人對話＋最後一個笑點」的節奏；詩作作者歸屬是原文說法，未另查證，對外引用作者前須核實。\n\n```text\n《小幫手說故事》\n當初要申請合法的民宿牌，首先第一步要先想個響亮亮又好記的名字。勞闆想了好多個，都被小幫手說不好🤣\n小幫手本身是文青美少女（？？？\n取名字喜歡有氣質、內涵+意義，光是想個名字，小幫手的親友都來幫忙想這樣😆 有天小幫手那位常常文思泉湧的阿母說：欸欸～取松風如何？\n是一首我從小就常常聽長輩唸的詩：\n本是山中人，愛說山中話。\n五月賣松風，人間恐無價。\n而谷歌也查不太到關於這首詩的資訊，只知道是一位釋思岳禪師寫的。\n取名松風\n來往松風體驗台東，感受這首詩與您內心或者跟大自然的連結🌈\n故事之後的故事\n勞闆買了一棵羅漢松種在門口，小棵到我阿母走進去再走出來，問一句：「沒看到羅漢松啊？」「在那邊啊～（手指）」\n「那麼小！跟桂花一樣高，難怪我沒看到」\n#我們來看看哪時候可以長得跟我一樣高😏\n#鹿野民宿\n```\n\n**兩份資料的取名敘述不同：**原有參考文寫「朋友談話」，這次 FB 原文寫「阿母提議」。後續新稿暫用共同資訊「因一句詩而取名」，具體由誰提議標「❓待補」，不把兩個版本拼成新故事。原有參考文保留供對照。\n\n## 5. 三個平台的規則＋填空骨架\n\n> 平台名單來自品牌卡；以下讀者分工、篇幅、第一行、段落配置與固定結尾均為建議規則。品牌卡沒有各平台受眾數據，不能當成實際追蹤者分析。\n> 骨架中的括號是填寫提示，完成貼文時刪除。emoji 上限依平台：FB 5 個、IG 2 個、LINE 1 個。FB 骨架依實際小幫手貼文調整；IG、LINE 沒有提供實際貼文，仍是建議設定。\n\n### Facebook\n\n- **誰在看：**想進一步了解松風故事與鹿野生活、正在考慮台東住宿的旅客（建議的內容對象，不預設年齡或熟客身分）。\n- **多長：**全文 300～650 字；正文 5～8 段，每段 1～3 句，另加 hashtag；最多 3 個 hashtag。這是編輯建議，不是對舊文長度的描述。\n- **第一行寫什麼：**最多 30 字，用「小幫手」出場句或「《小幫手說故事》」帶出本篇主題，可以加 1 個括號小吐槽；不必每篇都用同一句。\n- **中間寫什麼：**先講 1 件有來源的真實小事，帶入家人或老闆互動，再說感受、感謝或與土地的連結。可選 1 小段訂房資訊，不強迫每篇工商；不能虛構新對話或自身經歷。\n- **最後一行固定寫：**「#鹿野民宿」。實際貼文用過這個 hashtag，但固定放最後一行是新增的建議規則；其他 hashtag 與聯絡方式放在它前面。\n\n**骨架（照這個格子填）：**\n\n```text\n（第 1 段：小幫手出場或《小幫手說故事》，首行最多 30 字）\n\n（第 2 段：一件有資料來源的小事，1～3 句）\n\n（第 3 段：家人或老闆的互動，可加一處自嘲；不編對白）\n\n（第 4 段：小幫手的感受，連到自然、土地或地方生活）\n\n（第 5 段：感謝或一句邀請，不催促）\n\n（可選加 1～3 段延伸同一故事；需要訂房時，其中 1 段寫「訂房洽 LINE ID：nona7688」）\n（可選其他 hashtag，最多 2 個）\n#鹿野民宿\n```\n\n### Instagram\n\n- **誰在看：**被自然與木質空間影像吸引、想感受台東慢步調的旅客（建議的內容對象，不預設年齡）。\n- **多長：**全文 60～140 字、4～6 個非空白行；每行最多 30 字；hashtag 0～3 個，計入總字數與行數。\n- **第一行寫什麼：**用最多 20 字，點出照片中的 1 個可確認畫面或與它相關的 1 個想法。沒有照片時，不宣稱「今天拍到」。\n- **中間寫什麼：**用 2～3 行寫畫面細節與地方生活的連結，一行一件事；不塞進完整品牌歷史。\n- **最後一行固定寫：**「住進鹿野的生活裡。」這是前版採用的建議結尾，不是這次實際 FB 貼文的固定用語。\n- **帳號與 hashtag：**實際 IG 帳號為「❓待補」，不造一個 @ 帳號。需要 hashtag 時，可從品牌卡詞彙選用 `#松風民宿`、`#鹿野`、`#慢活`，放在固定結尾前。\n\n**骨架：**\n\n```text\n（第 1 行：照片畫面或相關想法，最多 20 字）\n（第 2 行：1 個有依據的細節）\n（第 3 行：與鹿野生活或慢步調的連結）\n（可選第 4 行：延伸同一主題；可選 hashtag 另占 1 行）\n住進鹿野的生活裡。\n```\n\n### LINE\n\n- **誰在看：**已加入帳號、想快速取得住宿資訊或公告的旅客（建議的內容對象；不自行稱為會員）。\n- **多長：**全文 50～120 字、4～6 個非空白行；每行最多 30 字；hashtag 0 個。\n- **第一行寫什麼：**「【松風住宿】＋一句重點」或「【松風公告】＋一句重點」，全行最多 25 字。沒有優惠資料，就不寫會員限定或折扣。\n- **中間寫什麼：**列 1～3 個重點，每點 1 行；另用 1 行寫清楚接下來怎麼做。使用「・」列點，不用多個 emoji 當項目符號。\n- **最後一行固定寫：**「松風民宿」（建議固定署名）。\n- **行動管道：**可寫「訂房洽 LINE ID：nona7688」或「訂房洽 0987-425-930」。Booking／Agoda 可使用基本資料中的房源連結；回覆、付款、確認訂房流程為「❓待補」；不能先承諾「回覆就能訂房」或「點選選單」，也不將訂房 LINE ID 視為已確認的官方帳號。\n\n**骨架：**\n\n```text\n【松風公告】（一句重點，整行最多 25 字）\n・（重點 1：已確認的資訊）\n・（可選重點 2）\n・（可選重點 3）\n訂房洽 LINE ID：nona7688\n松風民宿\n```\n\n## 6. 平台限定與發布前檢查\n\n**建議規則：**\n\n- 已確認訂房管道為電話、LINE ID、Booking 與 Agoda。平台專屬優惠、會員制度及 LINE 自動訂房功能仍為「❓待補」；不沿用小島咖啡的會員預購與優惠。\n- FB 用故事展開，IG 用畫面與短句，LINE 用重點與明確下一步；同一主題也依骨架改寫。\n- 檢查品牌名稱、主色色碼與平台是否和品牌卡一致。\n- 檢查新稿禁用詞是否為 0 個；emoji 是否符合 FB 最多 5 個、IG 最多 2 個、LINE 最多 1 個；句長、篇幅、插話與固定結尾是否符合平台規則。\n- 檢查小幫手的趣味是否來自語氣，而不是編造經歷；歷史貼文中的商品、裝修、日期、證照與健康效果說法不得直接轉為現行承諾。\n- 檢查每個地址、價格、時間、數字與服務承諾是否有資料來源；缺資料就標「❓待補」。\n- 檢查「希望成為」有沒有被誤寫成「現在提供」。\n- 檢查骨架提示及「❓待補」是否已在發布前補齊或刪除；沒有確認的必要資訊就不發布該公告。\n\n## 7. 哪些地方是我猜的？\n\n以下是我依品牌卡與實際 FB 範例提出的寫作設定，並非使用者已確認的硬性規定：\n\n1. **口氣的量化方式：**新稿統一用「你／大家」、FB 每句最多 60 字、IG／LINE 每句最多 40 字、每段最多 3 句、每篇 1 個主題、FB／IG／LINE emoji 上限為 5／2／1 個、FB 驚嘆號最多 2 個而其他平台最多 1 個、FB 括號插話最多 4 處及諧音最多 1 處、邀請句最多 1 句。小幫手自稱、自嘲與家人對話有實際貼文依據；具體數字上限是我訂的建議。\n2. **新增禁用說法：**催促、誇大與一應俱全的承諾；只有「狂歡、慶祝、熱鬧」是品牌卡明列的禁用字。\n3. **平台讀者分工：**FB 看故事、IG 看畫面、LINE 看資訊，是內容安排建議，沒有帳號受眾數據佐證。\n4. **平台數字與排版：**各平台的字數、行數、段落數、hashtag 數量及擺放位置，全部是建議值。\n5. **固定結尾與標題：**FB 固定以「#鹿野民宿」結尾是新增建議，雖然原文用過該標籤；IG 的「住進鹿野的生活裡。」沿用前版設定，LINE 的固定署名與公告標題也是建議。沒有證據顯示品牌目前每篇都這樣結尾。\n\n**不是猜的口氣特徵：**「小幫手」出場、自嘲、括號插話、諧音、家人對話，以及從玩笑轉向感謝與自然感受，都能在這次提供的 FB 原文找到。這些是對文本的觀察，不是成效或受眾數據。\n\n品牌名稱、平台、主色、營業日、品牌卡描述的受眾、三個禁用字及參考貼文均來自品牌卡。Facebook 連結、完整地址、電話、訂房 LINE ID、Booking／Agoda 管道與房源連結、三項房價、新臺幣按晚計價、平日假日旺季同價，以及入住時間 15:00－18:00、11:00 前須退房，均來自使用者補充，沒有猜填。未確認的帳號顯示名稱、IG 帳號、折扣、訂金、取消規則、營業具體時段、提前入住與延後退房規則、得獎及其他營運資料均標「❓待補」。\n"</script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     // ── 品牌、平台與欄位設定：日後從這裡修改 ──
     const IMAGE_MODELS = ['bytedance-seed/seedream-5-0-flash', 'qwen/qwen-image-2.1-turbo', 'qwen/qwen-image-3', 'bytedance-seed/seedream-5-0-pro', 'google/gemini-3.1-flash-lite-image'];
@@ -544,6 +571,14 @@
       { id:'small1', name:'小型 1 格', w:2500, h:843, cols:1, rows:1 }
     ];
     const MENU_KEY = 'songfeng-line-rich-menu-v1';
+    // 這兩個可以公開，守門的是 Supabase 的 RLS；sb_secret_ 開頭的絕對不要貼。
+    const SB_URL = 'https://rfnqerxuumxxmxtuhacy.supabase.co';
+    const SB_KEY = 'sb_publishable_vM0sQAxghiJ8NoIE8HRO1g_z7tvrEEf';
+    let sb = null;
+    let me = null;
+    let autoSyncedUserId = null;
+    let cloudSyncBusy = false;
+    const cloudPostIds = new Set();
     const SIZES = [
       { id: 'platform', name: '跟著平台', size: null },
       { id: 'square', name: '方形', size: [1080, 1080] },
@@ -609,12 +644,15 @@
     let usageStorageFailed = false;
     // 正式存檔與自動暫存分開，沿用既有設定並保留舊版單篇存檔。
     let currentPostId = makePostId();
+    const cur = { publishDate: '' };
+    let cloudSaveSequence = 0;
     let currentPostStatus = 'draft';
     let currentCreatedAt = new Date().toISOString();
     let aiQuestions = '';
     let mediaFiles = [];
     let postPictures = [];
     let imageDatabasePromise;
+    let warehouseInitPromise;
     let warehouseReady = false;
     let warehouseLoading = false;
     let warehouseStatsVersion = 0;
@@ -1748,7 +1786,8 @@
       return {
         version: 2, id: currentPostId, createdAt: currentCreatedAt, status: currentPostStatus,
         name: taiwanDate(now) + '＋' + (document.getElementById('material-' + MATERIAL_FIELDS[0].id).value.trim() || '未填日期'),
-        savedAt: now, materials: { ...materialValues(), media: mediaFiles.map(imageReference) },
+        savedAt: Date.now(), publishDate: cur.publishDate,
+        materials: { ...materialValues(), media: mediaFiles.map(imageReference) },
         postPictures: postPictures.map(imageReference), mainPictureIndex, pictureText: { ...pictureText }, imagePrompt: document.getElementById('image-prompt').value,
         drafts: { ...drafts }, activePlatform, aiQuestions,
         helperHistory: normalizeHelperHistory(helperHistory), previousDrafts: previousDrafts ? { ...previousDrafts } : null
@@ -2096,7 +2135,124 @@
       }
     }
 
-    function saveWorkspace() {
+    function cloudSaveError(error) {
+      const code = String(error?.code || '');
+      const message = String(error?.message || '');
+      if (code === '42P01' || code === 'PGRST205') return '雲端還沒有 posts 表，到 SQL Editor 貼建表那段按 Run';
+      if (code === '42501' || /row.level security/i.test(message)) return '雲端不讓你存，SQL 的權限那段沒跑到';
+      return message ? '雲端儲存失敗：' + message : '雲端儲存失敗，請稍後再試';
+    }
+
+    async function upsertCloudPost(data, userId) {
+      // 雲端留圖片本體；這台電腦的存檔仍只留圖片 ID。
+      const cloudData = await hydrateSnapshot(data);
+      const { error } = await sb.from('posts').upsert({
+        id: String(data.id), user_id: userId, data: cloudData,
+        publish_date: data.publishDate || null,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'user_id,id' });
+      if (error) throw error;
+      cloudPostIds.add(String(data.id));
+      renderPostList();
+    }
+
+    function reportCloudSync(message, error = false) {
+      const status = document.getElementById('cloud-sync-status');
+      status.textContent = message;
+      status.className = 'work-status' + (error ? ' ai-error' : '');
+    }
+
+    function setCloudSyncBusy(busy) {
+      cloudSyncBusy = busy;
+      document.getElementById('upload-all-posts').disabled = busy;
+      document.getElementById('download-cloud-posts').disabled = busy;
+    }
+
+    function savedAtNumber(post) {
+      const value = Number(post?.savedAt);
+      if (Number.isFinite(value)) return value;
+      const parsed = Date.parse(post?.savedAt);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function sortPostsNewest(posts) {
+      return posts.sort((a, b) => savedAtNumber(b) - savedAtNumber(a)
+        || String(b.id).localeCompare(String(a.id)));
+    }
+
+    async function uploadAllPosts() {
+      if (!sb || !me) { reportCloudSync('先 🔐 登入', true); return; }
+      if (cloudSyncBusy) return;
+      setCloudSyncBusy(true);
+      try {
+        await warehouseInitPromise;
+        if (!warehouseReady) throw new Error('圖片倉庫尚未就緒');
+        const userId = me.id;
+        const posts = readPosts();
+        for (let index = 0; index < posts.length; index++) {
+          reportCloudSync('正在上傳第 ' + (index + 1) + ' 篇，共 ' + posts.length + ' 篇…');
+          try {
+            if (me?.id !== userId) throw new Error('登入狀態已變更');
+            await upsertCloudPost(posts[index], userId);
+          } catch (error) {
+            reportCloudSync('第 ' + (index + 1) + ' 篇上傳失敗：' + cloudSaveError(error), true);
+            return;
+          }
+        }
+        reportCloudSync('上傳好了：' + posts.length + ' 篇');
+      } catch (error) { reportCloudSync(cloudSaveError(error), true); }
+      finally { setCloudSyncBusy(false); }
+    }
+
+    async function downloadCloudPosts() {
+      if (!sb || !me) { reportCloudSync('先 🔐 登入', true); return; }
+      if (cloudSyncBusy) return;
+      setCloudSyncBusy(true);
+      const userId = me.id;
+      reportCloudSync('正在從雲端拿回貼文…');
+      try {
+        await warehouseInitPromise;
+        if (!warehouseReady) throw new Error('圖片倉庫尚未就緒');
+        const rows = [];
+        for (let offset = 0; ; offset += 500) {
+          const { data, error } = await sb.from('posts').select('data, updated_at').range(offset, offset + 499);
+          if (error) throw error;
+          if (me?.id !== userId) throw new Error('登入狀態已變更');
+          rows.push(...(data || []));
+          if (!data || data.length < 500) break;
+        }
+        const posts = readPosts();
+        const indexes = new Map(posts.map((post, index) => [post.id, index]));
+        const found = new Set();
+        let added = 0, updated = 0;
+        for (const row of rows || []) {
+          const cloudPost = row?.data;
+          if (!cloudPost || typeof cloudPost.id !== 'string') throw new Error('雲端有一篇貼文格式錯誤');
+          found.add(cloudPost.id);
+          const index = indexes.get(cloudPost.id);
+          if (index !== undefined && savedAtNumber(posts[index]) >= savedAtNumber(cloudPost)) continue;
+          const localPost = await migrateSnapshot(cloudPost);
+          if (index === undefined) { indexes.set(localPost.id, posts.length); posts.push(localPost); added++; }
+          else { posts[index] = localPost; updated++; }
+        }
+        if (me?.id !== userId) throw new Error('登入狀態已變更');
+        writePosts(sortPostsNewest(posts));
+        cloudPostIds.clear();
+        found.forEach(id => cloudPostIds.add(id));
+        renderPostList();
+        reportCloudSync('拿回來了：新增 ' + added + ' 篇、更新 ' + updated + ' 篇');
+      } catch (error) { reportCloudSync(cloudSaveError(error), true); }
+      finally { setCloudSyncBusy(false); }
+    }
+
+    async function saveWorkspace() {
+      const cloudStatus = document.getElementById('cloud-save-status');
+      const sequence = ++cloudSaveSequence;
+      const reportCloud = (message, error = false) => {
+        if (sequence !== cloudSaveSequence) return;
+        cloudStatus.textContent = message;
+        cloudStatus.className = 'work-status' + (error ? ' ai-error' : '');
+      };
       if (!warehouseReady || warehouseLoading) { setStatus('圖片倉庫尚未就緒，請稍後再存檔。'); return; }
       if (mediaReading || mediaReadFailed) {
         setStatus(mediaReading ? '附件仍在讀取，請稍後再按存檔。' : '附件讀取失敗，請重新選取後再存檔。');
@@ -2111,9 +2267,21 @@
         writePosts(posts);
         const autoSaved = autoSaveWorkspace();
         setStatus((existing >= 0 ? '已更新：' : '已存檔：') + data.name + (autoSaved ? '' : '。目前編輯內容的自動暫存未成功，詳見左側提示。'));
+        if (!sb || !me) {
+          reportCloud('只存在這台電腦。🔐 登入以後，會同時存到雲端');
+          return;
+        }
+        reportCloud('雲端存檔中…');
+        try {
+          await upsertCloudPost(data, me.id);
+          reportCloud('☁ 雲端也存了：' + data.name);
+        } catch (error) {
+          reportCloud(cloudSaveError(error) + '。這台電腦有存到，不會不見', true);
+        }
       } catch (error) {
         if (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED') renderPictureStorage(true);
         setStatus('存檔失敗：儲存空間不足、附件太大，或存檔清單無法讀取。請先複製文字保留內容；原有存檔未覆蓋。');
+        reportCloud('');
       }
     }
 
@@ -2179,6 +2347,8 @@
       previewMediaIndex = 0;
       fbExpanded = false;
       currentPostId = typeof data.id === 'string' ? data.id : makePostId();
+      cur.publishDate = typeof data.publishDate === 'string' ? data.publishDate : '';
+      document.getElementById('publish-date').value = cur.publishDate;
       currentPostStatus = normalizePostStatus(data.status);
       currentCreatedAt = typeof data.createdAt === 'string' ? data.createdAt : new Date().toISOString();
       aiQuestions = typeof data.aiQuestions === 'string' ? data.aiQuestions : '';
@@ -2250,9 +2420,14 @@
       }
     }
 
-    function deletePost(id) {
-      if (!window.confirm('確定嗎？')) return;
+    async function deletePost(id) {
+      if (!window.confirm(me && sb ? '雲端的也會一起刪。確定嗎？' : '確定嗎？')) return;
       try {
+        if (me && sb) {
+          const { error } = await sb.from('posts').delete().eq('id', String(id));
+          if (error) throw error;
+          cloudPostIds.delete(String(id));
+        }
         const posts = readPosts();
         writePosts(posts.filter(post => post.id !== id));
         if (currentPostId === id) {
@@ -2264,8 +2439,8 @@
         }
         renderPostList();
         document.getElementById('my-posts-status').textContent = '已刪除。';
-      } catch {
-        document.getElementById('my-posts-status').textContent = '刪除失敗，請稍後再試。';
+      } catch (error) {
+        document.getElementById('my-posts-status').textContent = '刪除失敗：' + (error?.message || '請稍後再試。');
       }
     }
 
@@ -2303,13 +2478,9 @@
       list.replaceChildren();
       document.getElementById('my-posts-status').textContent = '';
       try {
-        const posts = readPosts().sort((a, b) => {
-          const dateA = String(a.materials?.date || '').replaceAll('/', '-');
-          const dateB = String(b.materials?.date || '').replaceAll('/', '-');
-          return (dateA || '9999').localeCompare(dateB || '9999') || String(b.savedAt).localeCompare(String(a.savedAt));
-        });
+        const posts = sortPostsNewest(readPosts());
         const unfinished = posts.filter(post => normalizePostStatus(post.status) !== 'done').length;
-        document.getElementById('board-summary').textContent = '共 ' + posts.length + ' 篇，尚未完成 ' + unfinished + ' 篇。依預計發布日期排列，改狀態後會立即儲存。';
+        document.getElementById('board-summary').textContent = '共 ' + posts.length + ' 篇，尚未完成 ' + unfinished + ' 篇。每欄依存檔時間由新到舊排列。';
         POST_STATUSES.forEach(stage => {
           const column = element('section', 'board-column board-column-' + stage.id);
           const heading = element('h3', 'board-heading', stage.label);
@@ -2322,12 +2493,15 @@
           if (!stagePosts.length) cards.append(element('p', 'board-empty', '這一欄目前沒有貼文。'));
           stagePosts.forEach(post => {
             const row = element('article', 'saved-post-row');
-            row.append(element('h4', 'saved-post-name', post.name || '未命名貼文'));
+            const name = element('h4', 'saved-post-name', post.name || '未命名貼文');
+            if (me && sb) name.append(element('span', 'cloud-badge', cloudPostIds.has(String(post.id)) ? '☁ 雲端有' : '只在這台'));
+            row.append(name);
             if (post.materials?.topic) row.append(element('p', 'post-topic', post.materials.topic));
             row.append(element('p', 'post-schedule', '預計發布：' + (post.materials?.date ? formatPublishDate(post.materials.date) : '未填日期')));
             const date = new Date(post.savedAt);
             const time = element('time', '', '存檔時間：' + (Number.isNaN(date.getTime()) ? '未記錄' : date.toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', hour12: false })));
-            if (!Number.isNaN(date.getTime())) time.dateTime = post.savedAt;
+            if (!Number.isNaN(date.getTime())) time.dateTime = date.toISOString();
+            if (post.publishDate) time.textContent += '｜📅 ' + post.publishDate;
             row.append(time);
             const label = element('label', 'post-status-label', '狀態');
             const select = element('select', 'post-status-select');
@@ -2371,6 +2545,7 @@
       try { localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(blank)); }
       catch { setStatus('無法建立新的一篇：瀏覽器暫存空間無法使用，畫面內容尚未清空。'); return; }
       applySnapshot(blank);
+      document.getElementById('cloud-save-status').textContent = '';
       document.getElementById('composed-prompt').value = '';
       document.getElementById('ai-reply-input').value = '';
       autoSaveWorkspace();
@@ -2444,6 +2619,10 @@
     });
     document.getElementById('copy-button').addEventListener('click', () => copyText(editor.value, document.getElementById('work-status')));
     document.getElementById('save-button').addEventListener('click', saveWorkspace);
+    document.getElementById('publish-date').addEventListener('input', event => {
+      cur.publishDate = event.target.value;
+      autoSaveWorkspace();
+    });
     document.getElementById('copy-prompt-button').addEventListener('click', () => copyText(
       document.getElementById('composed-prompt').value, document.getElementById('prompt-status')
     ));
@@ -2467,6 +2646,8 @@
       document.getElementById('my-posts-dialog').showModal();
     });
     document.getElementById('close-my-posts-button').addEventListener('click', () => document.getElementById('my-posts-dialog').close());
+    document.getElementById('upload-all-posts').addEventListener('click', uploadAllPosts);
+    document.getElementById('download-cloud-posts').addEventListener('click', downloadCloudPosts);
     document.getElementById('new-post-button').addEventListener('click', newPost);
     window.addEventListener('pagehide', autoSaveWorkspace);
     document.getElementById('upload-pictures').addEventListener('click', () => document.getElementById('post-picture-input').click());
@@ -2721,7 +2902,115 @@
       };
     }
     initializeMenu();
-    initializeWarehouse();
+    function authError(error) {
+      const message = String(error?.message || '');
+      if (/invalid login credentials/i.test(message)) return 'Email 或密碼不對';
+      if (/user already registered/i.test(message)) return '這個 Email 註冊過了，直接按「登入」';
+      if (/email not confirmed/i.test(message)) return '到 Supabase 把 Confirm email 關掉';
+      if (/password|密碼/i.test(message) && /short|least|6|too few|太短/i.test(message)) return '至少 6 個字';
+      if (/rate limit|too many requests|429/i.test(message)) return '試太多次了，等 1 分鐘';
+      return message ? '驗證失敗：' + message : '驗證失敗，請稍後再試';
+    }
+
+    function showLoginState() {
+      document.getElementById('login-open').textContent = me ? '☁ ' + me.email : '🔐 登入';
+      document.getElementById('login-signout').disabled = !me || !sb;
+      document.getElementById('login-submit').disabled = !sb;
+      document.getElementById('login-signup').disabled = !sb;
+      renderPostList();
+    }
+
+    function acceptLogin(user) {
+      me = user || null;
+      if (!me) { cloudPostIds.clear(); autoSyncedUserId = null; }
+      showLoginState();
+      if (me && autoSyncedUserId !== me.id) {
+        autoSyncedUserId = me.id;
+        // 避免在 Supabase 的驗證回呼內直接呼叫資料庫。
+        setTimeout(() => downloadCloudPosts(), 0);
+      }
+    }
+
+    function initLogin() {
+      const dialog = document.getElementById('login-dialog');
+      const status = document.getElementById('login-status');
+      const email = document.getElementById('login-email');
+      const password = document.getElementById('login-password');
+      const report = (message, error = false) => {
+        status.textContent = message;
+        status.className = 'work-status' + (error ? ' ai-error' : '');
+      };
+      let unavailable = '';
+      if (!SB_URL || !SB_KEY) unavailable = 'SB_URL 或 SB_KEY 尚未填寫';
+      else if (!window.supabase?.createClient) unavailable = 'Supabase 程式庫載入失敗';
+      else {
+        try { sb = window.supabase.createClient(SB_URL, SB_KEY); }
+        catch { unavailable = 'Supabase 設定無法使用'; }
+      }
+      if (sb) {
+        sb.auth.onAuthStateChange((_event, session) => {
+          acceptLogin(session?.user);
+        });
+        sb.auth.getSession().then(({ data, error }) => {
+          if (error) report(authError(error), true);
+          else acceptLogin(data?.session?.user);
+        }).catch(error => report(authError(error), true));
+      }
+      showLoginState();
+      document.getElementById('login-open').addEventListener('click', () => {
+        report(unavailable ? '還沒接雲端：' + unavailable : me ? '已登入：' + me.email : '請輸入 Email 和密碼。');
+        dialog.showModal();
+      });
+      document.getElementById('login-close').addEventListener('click', () => dialog.close());
+      async function submit(kind) {
+        if (!sb) { report('還沒接雲端：' + unavailable, true); return; }
+        if (!email.value.trim()) { report('請填 Email。', true); return; }
+        if (password.value.length < 6) { report('至少 6 個字', true); return; }
+        const buttons = [document.getElementById('login-submit'), document.getElementById('login-signup')];
+        buttons.forEach(button => { button.disabled = true; });
+        report(kind === 'signup' ? '註冊中…' : '登入中…');
+        try {
+          const result = kind === 'signup'
+            ? await sb.auth.signUp({ email: email.value.trim(), password: password.value })
+            : await sb.auth.signInWithPassword({ email: email.value.trim(), password: password.value });
+          if (result.error) throw result.error;
+          if (kind === 'signup' && !result.data?.session) report('Supabase 的 Confirm email 還開著，關掉再按登入');
+          else {
+            acceptLogin(result.data?.user || result.data?.session?.user);
+            report(kind === 'signup' ? '註冊成功，已登入。' : '登入成功。');
+          }
+        } catch (error) { report(authError(error), true); }
+        finally { buttons.forEach(button => { button.disabled = !sb; }); }
+      }
+      document.getElementById('login-submit').addEventListener('click', () => submit('login'));
+      document.getElementById('login-signup').addEventListener('click', () => submit('signup'));
+      document.getElementById('login-signout').addEventListener('click', async () => {
+        if (!sb) { report('還沒接雲端：' + unavailable, true); return; }
+        if (!warehouseReady || warehouseLoading) { report('請等圖片倉庫載入完成再登出。', true); return; }
+        const clearThisDevice = window.confirm('要把這台電腦上的貼文也清掉嗎？借別人的電腦用，請按確定；自己的電腦按取消。');
+        try {
+          const { error } = await sb.auth.signOut();
+          if (error) throw error;
+          acceptLogin(null);
+          autoSyncedUserId = null;
+          if (clearThisDevice) {
+            await warehouseInitPromise;
+            if (!warehouseReady) throw new Error('圖片倉庫尚未就緒，這台電腦的資料尚未清除');
+            await imageStoreOperation('readwrite', store => store.clear());
+            [POSTS_KEY, AUTOSAVE_KEY, STORAGE_KEY].forEach(key => localStorage.removeItem(key));
+            menuPhotoId = '';
+            menuPhotoPromise = null;
+            newPost();
+            renderPostList();
+            renderPictureStorage();
+            setStatus('已清空這台電腦的貼文、草稿和圖片。');
+            report('已登出，這台電腦的貼文、草稿和圖片倉庫已清除。');
+          } else report('已登出，這台電腦的貼文已保留。');
+        } catch (error) { report(authError(error), true); }
+      });
+    }
+    initLogin();
+    warehouseInitPromise = initializeWarehouse();
   </script>
 </body>
 </html>
